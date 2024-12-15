@@ -1,5 +1,5 @@
---- a/fs/proc/base.c	2024-12-15 09:24:38.642576100 -0500
-+++ b/fs/proc/base.c	2024-12-15 09:35:40.408546348 -0500
+--- a/fs/proc/base.c	2024-12-15 11:30:00.213422100 -0500
++++ b/fs/proc/base.c	2024-12-15 11:36:21.422813925 -0500
 @@ -2229,11 +2229,17 @@
  
  	rc = -ENOENT;
@@ -10,26 +10,26 @@
 -		rc = 0;
 -	}
 +	if (vma) {
-+		if (vma->vm_file) {
-+			if (strstr(vma->vm_file->f_path.dentry->d_name.name, "lineage")) { 
++        if (vma->vm_file) {
++            if (strstr(vma->vm_file->f_path.dentry->d_name.name, "lineage")) { 
 +				rc = kern_path("/system/framework/framework-res.apk", LOOKUP_FOLLOW, path);
 +			} else {
 +				*path = vma->vm_file->f_path;
 +				path_get(path);
-+                rc = 0;
++				rc = 0;
 +            }
 +        }
 +    }
  	mmap_read_unlock(mm);
  
  out_mmput:
---- a/fs/proc/task_mmu.c	2024-12-15 09:50:36.570000389 -0500
-+++ b/fs/proc/task_mmu.c	2024-12-15 09:58:53.089077200 -0500
-@@ -412,6 +412,27 @@
+--- a/fs/proc/task_mmu.c	2024-12-15 11:30:05.268311800 -0500
++++ b/fs/proc/task_mmu.c	2024-12-15 11:40:37.750152757 -0500
+@@ -412,6 +412,23 @@
  	return 0;
  }
  
-+static void __maybe_unused show_vma_header_prefix_fake(struct seq_file *m,
++static void show_vma_header_prefix_fake(struct seq_file *m,
 +					unsigned long start, unsigned long end,
 +					vm_flags_t flags, unsigned long long pgoff,
 +					dev_t dev, unsigned long ino)
@@ -46,31 +46,20 @@
 +			MAJOR(dev), MINOR(dev), ino);
 +}
 +
-+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
-+extern void susfs_sus_ino_for_show_map_vma(unsigned long ino, dev_t *out_dev, unsigned long *out_ino);
-+#endif
-+
- static void
- show_map_vma(struct seq_file *m, struct vm_area_struct *vma)
- {
-@@ -423,24 +423,33 @@
+ #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+ extern void susfs_sus_ino_for_show_map_vma(unsigned long ino, dev_t *out_dev, unsigned long *out_ino);
+ #endif
+@@ -427,7 +444,8 @@
  	unsigned long start, end;
  	dev_t dev = 0;
  	const char *name = NULL;
 -
-+	struct dentry *dentry;
++	struct dentry *dentry
 +	
  	if (file) {
  		struct inode *inode = file_inode(vma->vm_file);
  #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
- 		if (unlikely(inode->i_state & 67108864)) {
- 			susfs_sus_ino_for_show_map_vma(inode->i_ino, &dev, &ino);
- 			goto bypass_orig_flow;
- 		}
- #endif
- 		dev = inode->i_sb->s_dev;
- 		ino = inode->i_ino;
- #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+@@ -442,6 +460,17 @@
  bypass_orig_flow:
  #endif
  		pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
@@ -84,11 +73,7 @@
 +				name = "/system/framework/framework-res.apk";
 +				goto done;
 +            }
-+        }
- 	}
- 
- 	start = vma->vm_start;
-
++		}
  	}
  
  	start = vma->vm_start;
