@@ -49,11 +49,12 @@
  #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
  extern void susfs_sus_ino_for_show_map_vma(unsigned long ino, dev_t *out_dev, unsigned long *out_ino);
  #endif
-@@ -442,6 +459,17 @@
+@@ -442,6 +459,18 @@
  bypass_orig_flow:
  #endif
  		pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
-+		struct dentry *dentry = file->f_path.dentry;
++		struct dentry *dentry;
++  dentry = file->f_path.dentry;
 +        if (dentry) {
 +        	const char *path = (const char *)dentry->d_name.name; 
 +			if (strstr(path, "lineage")) { 
