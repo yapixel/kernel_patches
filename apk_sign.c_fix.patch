@@ -1,5 +1,5 @@
---- ./KernelSU/kernel/apk_sign.c.orig	2024-12-18 08:53:14.063525500 -0500
-+++ ./KernelSU/kernel/apk_sign.c	2024-12-18 09:10:04.227156884 -0500
+--- ./KernelSU-Next/kernel/apk_sign.c	2024-12-18 08:53:14.063525500 -0500
++++ ./KernelSU-Next/kernel/apk_sign.c	2024-12-18 09:10:04.227156884 -0500
 @@ -314,8 +314,14 @@
  
  #endif
