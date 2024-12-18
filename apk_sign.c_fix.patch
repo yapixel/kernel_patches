@@ -8,7 +8,7 @@
 +bool ksu_is_manager_apk(char *path)
  {
 +#ifdef CONFIG_KSU_SUSFS
-+	return (check_v2_signature(path, 0x363, "4359c171f32543394cbc23ef908c4bb94cad7c8087002ba164c8230948c21549" ||
++	return (check_v2_signature(path, 0x363, "4359c171f32543394cbc23ef908c4bb94cad7c8087002ba164c8230948c21549")
 +			|| check_v2_signature(path, EXPECTED_MAGIC_SIZE, EXPECTED_MAGIC_HASH)
 +   || check_v2_signature(path, 0x27b, "d50f782a7d12deaa1ae967959a5b69cd88587874387e92b8b1517df232e5a061")
 +   );
