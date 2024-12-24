@@ -1,5 +1,5 @@
---- "./KernelSU-Next/kernel/apk_sign - Copy.c"	2024-12-24 05:01:18.522648200 -0500
-+++ ./KernelSU-Next/kernel/apk_sign.c	2024-12-24 05:17:59.355113936 -0500
+--- a/KernelSU-Next/kernel/apk_sign.c	2024-12-24 05:01:18.522648200 -0500
++++ b/KernelSU-Next/kernel/apk_sign.c	2024-12-24 05:17:59.355113936 -0500
 @@ -314,8 +314,19 @@
  
  #endif
