@@ -1,11 +1,11 @@
 --- a/kernel/sys.c	2024-12-14 08:28:22.681621671 -0500
 +++ b/kernel/sys.c	2024-12-14 08:39:57.972646309 -0500
-@@ -1297,14 +1297,25 @@
+@@ -1297,14 +1297,21 @@
 	return ret;
  }
  
 +#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
-+extern int susfs_spoof_uname(struct new_utsname* tmp);
++extern void susfs_spoof_uname(struct new_utsname* tmp);
 +#endif
 +
  SYSCALL_DEFINE1(newuname, struct new_utsname __user *, name)
@@ -15,13 +15,9 @@
  	bool is_gms = false;
 
  	down_read(&uts_sem);
-+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
-+	if (likely(!susfs_spoof_uname(&tmp)))
-+		goto bypass_orig_flow;
-+#endif
  	memcpy(&tmp, utsname(), sizeof(tmp));
 +#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
-+bypass_orig_flow:
++	susfs_spoof_uname(&tmp);
 +#endif
  	up_read(&uts_sem);
  
