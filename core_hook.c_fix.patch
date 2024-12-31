@@ -43,7 +43,7 @@
  	// try umount ksu temp path
 -	try_umount("/debug_ramdisk", false, MNT_DETACH);
 -	try_umount("/sbin", false, MNT_DETACH);
-+	ksu_ry_umount("/debug_ramdisk", false, MNT_DETACH);
++	ksu_try_umount("/debug_ramdisk", false, MNT_DETACH);
 +	ksu_try_umount("/sbin", false, MNT_DETACH);
  	
  	// try umount hosts file
