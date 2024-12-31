@@ -1,6 +1,6 @@
---- a/KernelSU-Next/kernel/apk_sign.c	2024-12-24 05:01:18.522648200 -0500
-+++ b/KernelSU-Next/kernel/apk_sign.c	2024-12-24 05:17:59.355113936 -0500
-@@ -314,9 +314,18 @@
+--- "./KernelSU-Next/kernel/apk_sign - Copy.c"	2024-12-31 16:19:51.886744500 -0500
++++ ./KernelSU-Next/kernel/apk_sign.c	2024-12-31 16:25:51.396912664 -0500
+@@ -314,7 +314,16 @@
  
  #endif
  
@@ -15,7 +15,7 @@
 +	|| check_v2_signature(path, 0x396, "f415f4ed9435427e1fdf7f1fccd4dbc07b3d6b8751e4dbcec6f19671f427870b") // rsuntk
 +	);
 +#else
- 	return (check_v2_signature(path, EXPECTED_NEXT_SIZE, EXPECTED_NEXT_HASH));
+ 	return check_v2_signature(path, EXPECTED_NEXT_SIZE, EXPECTED_NEXT_HASH);
 +#endif
  }
 \ No newline at end of file
