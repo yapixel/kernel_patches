@@ -39,7 +39,7 @@
 +		dentry = file->f_path.dentry;
 +        if (dentry) {
 +        	const char *path = (const char *)dentry->d_name.name; 
-+            if (strstr(path, "lineage") || strstr(path, "quickswitch")) {
++            if (strstr(path, "lineage")) {
 +			start = vma->vm_start;
 +			end = vma->vm_end;
 +			show_vma_header_prefix(m, start, end, flags, pgoff, dev, ino);
@@ -77,7 +77,7 @@
 -	}
 +	if (vma) {
 +        if (vma->vm_file) {
-+            if (strstr(vma->vm_file->f_path.dentry->d_name.name, "lineage") || strstr(vma->vm_file->f_path.dentry->d_name.name, "quickswitch")) { 
++            if (strstr(vma->vm_file->f_path.dentry->d_name.name, "lineage")) { 
 +				rc = kern_path("/system/framework/framework-res.apk", LOOKUP_FOLLOW, path);
 +			} else {
 +				*path = vma->vm_file->f_path;
