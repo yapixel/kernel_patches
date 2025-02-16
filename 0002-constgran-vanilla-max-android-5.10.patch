@@ -1,12 +1,115 @@
---- ./kernel/sched/fair.c.orig	2025-02-15 17:37:47.633358200 -0500
-+++ ./kernel/sched/fair.c	2025-02-15 20:07:41.947611661 -0500
-@@ -37,11 +37,18 @@
+
+Skip to content
+Navigation Menu
+
+    WildPlusKernel
+
+    kernel_patches
+
+Code
+Issues
+Pull requests
+Actions
+Projects
+Wiki
+Security
+Insights
+
+    Settings
+
+    kernel_patches
+
+/
+in
+main
+
+Indent mode
+Indent size
+Line wrap mode
+Editing 0002-constgran-vanilla-max-android-5.10.patch file contents
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+--- ./kernel/sched/fair.c.orig	2025-02-15 23:02:40.778104500 -0500
++++ ./kernel/sched/fair.c	2025-02-15 23:13:59.487007974 -0500
+@@ -38,11 +38,18 @@
   * (to see the precise effective timeslice length of your workload,
   *  run vmstat and monitor the context-switches (cs) field)
   *
 - * (default: 6ms * (1 + ilog(ncpus)), units: nanoseconds)
 + * (BORE default: 24ms constant, units: nanoseconds)
-+ * (CFS  default: 6ms * (1 + ilog(ncpus)), units: nanoseconds))
++ * (CFS  default: 6ms * (1 + ilog(ncpus)), units: nanoseconds)
   */
 +#ifdef CONFIG_SCHED_BORE
 +unsigned int sysctl_sched_latency			= 24000000ULL;
@@ -20,7 +123,7 @@
  
  /*
   * The initial- and re-scaling of tunables is configurable
-@@ -52,18 +59,30 @@
+@@ -53,18 +60,30 @@
   *   SCHED_TUNABLESCALING_LOG - scaled logarithmical, *1+ilog(ncpus)
   *   SCHED_TUNABLESCALING_LINEAR - scaled linear, *ncpus
   *
@@ -29,9 +132,9 @@
 + * (CFS  default SCHED_TUNABLESCALING_LOG  = *(1+ilog(ncpus))
   */
 +#ifdef CONFIG_SCHED_BORE
-+unsigned int sysctl_sched_tunable_scaling = SCHED_TUNABLESCALING_NONE;
++enum sched_tunable_scaling sysctl_sched_tunable_scaling = SCHED_TUNABLESCALING_NONE;
 +#else // CONFIG_SCHED_BORE
- unsigned int sysctl_sched_tunable_scaling = SCHED_TUNABLESCALING_LOG;
+ enum sched_tunable_scaling sysctl_sched_tunable_scaling = SCHED_TUNABLESCALING_LOG;
 +#endif // CONFIG_SCHED_BORE
  
  /*
@@ -44,7 +147,7 @@
 +#ifdef CONFIG_SCHED_BORE
 +unsigned int sysctl_sched_min_granularity			= 3000000ULL;
 +EXPORT_SYMBOL_GPL(sysctl_sched_min_granularity);
-+static unsigned int normalized_sysctl_sched_min_granularity	= 3000000ULL;
++unsigned int normalized_sysctl_sched_min_granularity	= 3000000ULL;
 +#else // CONFIG_SCHED_BORE
  unsigned int sysctl_sched_min_granularity			= 750000ULL;
  EXPORT_SYMBOL_GPL(sysctl_sched_min_granularity);
@@ -53,7 +156,7 @@
  
  /*
   * This value is kept at sysctl_sched_latency/sysctl_sched_min_granularity
-@@ -83,10 +102,16 @@
+@@ -84,10 +103,16 @@
   * and reduces their over-scheduling. Synchronous workloads will still
   * have immediate wakeup/sleep latencies.
   *
@@ -70,4 +173,8 @@
 +#endif // CONFIG_SCHED_BORE
  
  const_debug unsigned int sysctl_sched_migration_cost	= 500000UL;
+ 
+
+Use Control + Shift + m to toggle the tab key moving focus. Alternatively, use esc then tab to move to the next interactive element on the page.
+Editing kernel_patches/0002-constgran-vanilla-max-android-5.10.patch at main · WildPlusKernel/kernel_patches
  
