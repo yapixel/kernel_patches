@@ -1,5 +1,5 @@
 --- ./kernel/sched/fair.c.orig	2025-02-15 17:37:47.633358200 -0500
-+++ ./kernel/sched/fair.c	2025-02-15 17:52:23.900505688 -0500
++++ ./kernel/sched/fair.c	2025-02-15 20:07:41.947611661 -0500
 @@ -37,11 +37,18 @@
   * (to see the precise effective timeslice length of your workload,
   *  run vmstat and monitor the context-switches (cs) field)
@@ -62,8 +62,8 @@
 + * (CFS  default: 1 msec * (1 + ilog(ncpus)), units: nanoseconds)
   */
 +#ifdef CONFIG_SCHED_BORE
-++unsigned int sysctl_sched_wakeup_granularity			= 4000000UL;
-++static unsigned int normalized_sysctl_sched_wakeup_granularity	= 4000000UL;
++unsigned int sysctl_sched_wakeup_granularity			= 4000000UL;
++static unsigned int normalized_sysctl_sched_wakeup_granularity	= 4000000UL;
 +#else // CONFIG_SCHED_BORE
  unsigned int sysctl_sched_wakeup_granularity			= 1000000UL;
  static unsigned int normalized_sysctl_sched_wakeup_granularity	= 1000000UL;
