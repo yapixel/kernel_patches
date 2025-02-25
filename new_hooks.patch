@@ -4,7 +4,7 @@
  	return retval;
  }
  
-+#if defined(CONFIG_KSU_WITH_KPROBES) && (CONFIG_KSU_WITH_KPROBES == 'n')
++#ifndef CONFIG_KSU_WITH_KPROBES
 +extern bool ksu_execveat_hook __read_mostly;
 +extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv,
 +			void *envp, int *flags);
@@ -18,7 +18,7 @@
  {
  	struct user_arg_ptr argv = { .ptr.native = __argv };
  	struct user_arg_ptr envp = { .ptr.native = __envp };
-+#if defined(CONFIG_KSU_WITH_KPROBES) && (CONFIG_KSU_WITH_KPROBES == 'n')
++#ifndef CONFIG_KSU_WITH_KPROBES
 +	if (unlikely(ksu_execveat_hook))
 +		ksu_handle_execveat((int *)AT_FDCWD, &filename, &argv, &envp, 0);
 +	else
@@ -31,7 +31,7 @@
  		.is_compat = true,
  		.ptr.compat = __envp,
  	};
-+#if defined(CONFIG_KSU_WITH_KPROBES) && (CONFIG_KSU_WITH_KPROBES == 'n')
++#ifndef CONFIG_KSU_WITH_KPROBES
 +	if (!ksu_execveat_hook)
 +		ksu_handle_execveat_sucompat((int *)AT_FDCWD, &filename, NULL, NULL, NULL); /* 32-bit su */
 +#endif
@@ -44,14 +44,14 @@
  	return res;
  }
  
-+#if defined(CONFIG_KSU_WITH_KPROBES) && (CONFIG_KSU_WITH_KPROBES == 'n')
++#ifndef CONFIG_KSU_WITH_KPROBES
 +extern int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
 +			                    int *flags);
 +#endif
 +
  SYSCALL_DEFINE3(faccessat, int, dfd, const char __user *, filename, int, mode)
  {
-+#if defined(CONFIG_KSU_WITH_KPROBES) && (CONFIG_KSU_WITH_KPROBES == 'n')
++#ifndef CONFIG_KSU_WITH_KPROBES
 +	ksu_handle_faccessat(&dfd, &filename, &mode, NULL);
 +#endif
  	return do_faccessat(dfd, filename, mode, 0);
@@ -63,7 +63,7 @@
  	return ret;
  }
  
-+#if defined(CONFIG_KSU_WITH_KPROBES) && (CONFIG_KSU_WITH_KPROBES == 'n')
++#ifndef CONFIG_KSU_WITH_KPROBES
 +extern bool ksu_vfs_read_hook __read_mostly;
 +extern int ksu_handle_sys_read(unsigned int fd, char __user **buf_ptr,
 +			size_t *count_ptr);
@@ -71,7 +71,7 @@
 +
  SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count)
  {
-+#if defined(CONFIG_KSU_WITH_KPROBES) && (CONFIG_KSU_WITH_KPROBES == 'n')
++#ifndef CONFIG_KSU_WITH_KPROBES
 +	if (unlikely(ksu_vfs_read_hook)) 
 +		ksu_handle_sys_read(fd, &buf, &count);
 +#endif
@@ -84,7 +84,7 @@
  	return cp_new_stat(&stat, statbuf);
  }
  
-+#if defined(CONFIG_KSU_WITH_KPROBES) && (CONFIG_KSU_WITH_KPROBES == 'n')
++#ifndef CONFIG_KSU_WITH_KPROBES
 +extern int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags);
 +#endif
 +
@@ -95,7 +95,7 @@
  	struct kstat stat;
  	int error;
  
-+#if defined(CONFIG_KSU_WITH_KPROBES) && (CONFIG_KSU_WITH_KPROBES == 'n')
++#ifndef CONFIG_KSU_WITH_KPROBES
 +	ksu_handle_stat(&dfd, &filename, &flag);
 +#endif
  	error = vfs_fstatat(dfd, filename, &stat, flag);
@@ -105,7 +105,7 @@
  	struct kstat stat;
  	int error;
  
-+#if defined(CONFIG_KSU_WITH_KPROBES) && (CONFIG_KSU_WITH_KPROBES == 'n')
++#ifndef CONFIG_KSU_WITH_KPROBES
 +	ksu_handle_stat(&dfd, &filename, &flag); /* 32-bit su */
 +#endif
  	error = vfs_fstatat(dfd, filename, &stat, flag);
@@ -117,7 +117,7 @@
   * to 'seed' initial state of a switch or initial position of absolute
   * axis, etc.
   */
-+#if defined(CONFIG_KSU_WITH_KPROBES) && (CONFIG_KSU_WITH_KPROBES == 'n')
++#ifndef CONFIG_KSU_WITH_KPROBES
 +extern bool ksu_input_hook __read_mostly;
 +extern int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code, int *value);
 +#endif
@@ -127,7 +127,7 @@
  {
  	unsigned long flags;
  
-+#if defined(CONFIG_KSU_WITH_KPROBES) && (CONFIG_KSU_WITH_KPROBES == 'n')
++#ifndef CONFIG_KSU_WITH_KPROBES
 +	if (unlikely(ksu_input_hook))
 +		ksu_handle_input_handle_event(&type, &code, &value);
 +#endif
@@ -141,7 +141,7 @@
   *	This provides our locking for the tty pointer.
   */
  
-+#if defined(CONFIG_KSU_WITH_KPROBES) && (CONFIG_KSU_WITH_KPROBES == 'n')
++#ifndef CONFIG_KSU_WITH_KPROBES
 +extern int ksu_handle_devpts(struct inode*);
 +#endif
 +
@@ -150,7 +150,7 @@
  {
  	struct tty_struct *tty;
  
-+#if defined(CONFIG_KSU_WITH_KPROBES) && (CONFIG_KSU_WITH_KPROBES == 'n')
++#ifndef CONFIG_KSU_WITH_KPROBES
 +	ksu_handle_devpts((struct inode *)file->f_path.dentry->d_inode);
 +#endif
  	mutex_lock(&devpts_mutex);
