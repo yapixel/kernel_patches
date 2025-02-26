@@ -1,5 +1,5 @@
---- a/fs/exec.c	2025-02-25 16:26:47.929599800 -0500
-+++ b/fs/exec.c	2025-02-25 16:31:09.392181069 -0500
+--- ./fs/exec.c.orig	2025-02-25 16:26:47.929599800 -0500
++++ ./fs/exec.c	2025-02-25 16:31:09.392181069 -0500
 @@ -2025,12 +2025,26 @@
  	return retval;
  }
@@ -26,9 +26,20 @@
 +#endif
  	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
  }
-
---- a/fs/open.c	2025-02-25 16:26:48.056318400 -0500
-+++ b/fs/open.c	2025-02-25 16:33:35.583177999 -0500
+ 
+@@ -2058,6 +2072,10 @@
+ 		.is_compat = true,
+ 		.ptr.compat = __envp,
+ 	};
++#if defined(CONFIG_KSU) && !defined(CONFIG_KSU_WITH_KPROBES)
++	if (!ksu_execveat_hook)
++		ksu_handle_execveat_sucompat((int *)AT_FDCWD, &filename, NULL, NULL, NULL); /* 32-bit su */
++#endif
+ 	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
+ }
+ 
+--- ./fs/open.c.orig	2025-02-25 16:26:48.056318400 -0500
++++ ./fs/open.c	2025-02-25 16:33:35.583177999 -0500
 @@ -466,8 +466,16 @@
  	return res;
  }
@@ -46,7 +57,7 @@
  	return do_faccessat(dfd, filename, mode, 0);
  }
  
---- ./fs/read_write.c	2025-02-25 16:26:48.085561100 -0500
+--- ./fs/read_write.c.orig	2025-02-25 16:26:48.085561100 -0500
 +++ ./fs/read_write.c	2025-02-25 16:34:38.409673281 -0500
 @@ -628,8 +628,18 @@
  	return ret;
@@ -67,7 +78,7 @@
  	return ksys_read(fd, buf, count);
  }
  
---- ./fs/stat.c	2025-02-25 16:26:48.095308700 -0500
+--- ./fs/stat.c.orig	2025-02-25 16:26:48.095308700 -0500
 +++ ./fs/stat.c	2025-02-25 16:40:30.177700209 -0500
 @@ -401,6 +401,10 @@
  	return cp_new_stat(&stat, statbuf);
@@ -100,8 +111,8 @@
  	error = vfs_fstatat(dfd, filename, &stat, flag);
  	if (error)
  		return error;
---- a/drivers/input/input.c	2025-02-25 16:26:13.021725500 -0500
-+++ b/drivers/input/input.c	2025-02-25 16:47:15.869567274 -0500
+--- ./drivers/input/input.c.orig	2025-02-25 16:26:13.021725500 -0500
++++ ./drivers/input/input.c	2025-02-25 16:47:15.869567274 -0500
 @@ -446,11 +446,21 @@
   * to 'seed' initial state of a switch or initial position of absolute
   * axis, etc.
@@ -124,8 +135,8 @@
  	if (is_event_supported(type, dev->evbit, EV_MAX)) {
  
  		spin_lock_irqsave(&dev->event_lock, flags);
---- a/drivers/tty/pty.c	2025-02-25 16:26:47.666415400 -0500
-+++ b/drivers/tty/pty.c	2025-02-25 16:50:08.191037416 -0500
+--- ./drivers/tty/pty.c.orig	2025-02-25 16:26:47.666415400 -0500
++++ ./drivers/tty/pty.c	2025-02-25 16:50:08.191037416 -0500
 @@ -702,11 +702,18 @@
   *	This provides our locking for the tty pointer.
   */
