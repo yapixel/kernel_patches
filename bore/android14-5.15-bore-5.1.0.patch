@@ -51,14 +51,16 @@ diff -ruN a/init/Kconfig b/init/Kconfig
  	select CGROUPS
 diff -ruN a/kernel/sched/core.c b/kernel/sched/core.c
 --- a/kernel/sched/core.c	2025-02-27 07:43:28.851533022 -0500
-+++ b/kernel/sched/core.c	2025-02-27 16:07:45.446837868 -0500
-@@ -4343,6 +4343,118 @@
++++ b/kernel/sched/core.c	2025-02-27 16:31:54.155683176 -0500
+@@ -4343,6 +4343,120 @@
  	return try_to_wake_up(p, state, 0);
  }
  
 +#ifdef CONFIG_SCHED_BORE
 +extern u8   sched_burst_fork_atavistic;
 +extern uint sched_burst_cache_lifetime;
++
++static inline void __update_child_burst_cache(struct task_struct *p, u32 cnt, u32 sum, u64 now);
 +
 +static void __init sched_init_bore(void) {
 +    init_task.bore_data.burst_time = 0;
@@ -171,7 +173,7 @@ diff -ruN a/kernel/sched/core.c b/kernel/sched/core.c
  /*
   * Perform scheduler related setup for a newly forked process p.
   * p is forked by current.
-@@ -4359,6 +4471,9 @@
+@@ -4359,6 +4473,9 @@
  	p->se.prev_sum_exec_runtime	= 0;
  	p->se.nr_migrations		= 0;
  	p->se.vruntime			= 0;
@@ -181,7 +183,7 @@ diff -ruN a/kernel/sched/core.c b/kernel/sched/core.c
  	INIT_LIST_HEAD(&p->se.group_node);
  
  #ifdef CONFIG_FAIR_GROUP_SCHED
-@@ -4598,6 +4713,9 @@
+@@ -4598,6 +4715,9 @@
  
  void sched_post_fork(struct task_struct *p)
  {
@@ -191,7 +193,7 @@ diff -ruN a/kernel/sched/core.c b/kernel/sched/core.c
  	uclamp_post_fork(p);
  }
  
-@@ -9578,6 +9696,11 @@
+@@ -9578,6 +9698,11 @@
  	BUG_ON(&dl_sched_class + 1 != &stop_sched_class);
  #endif
  
