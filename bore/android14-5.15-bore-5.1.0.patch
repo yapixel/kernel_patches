@@ -1,7 +1,7 @@
-Binary files a/.git/index and a/.git/index differ
-diff -ruN a/include/linux/sched.h a/include/linux/sched.h
+Binary files a/.git/index and b/.git/index differ
+diff -ruN a/include/linux/sched.h b/include/linux/sched.h
 --- a/include/linux/sched.h	2025-02-27 07:43:28.692246156 -0500
-+++ a/include/linux/sched.h	2025-02-27 07:48:09.758895726 -0500
++++ b/include/linux/sched.h	2025-02-27 07:48:09.758895726 -0500
 @@ -788,6 +788,19 @@
  	struct sched_rt_entity		rt;
  	struct sched_dl_entity		dl;
@@ -22,9 +22,9 @@ diff -ruN a/include/linux/sched.h a/include/linux/sched.h
  #ifdef CONFIG_SCHED_CORE
  	struct rb_node			core_node;
  	unsigned long			core_cookie;
-diff -ruN a/init/Kconfig a/init/Kconfig
+diff -ruN a/init/Kconfig b/init/Kconfig
 --- a/init/Kconfig	2025-02-27 07:43:28.823423575 -0500
-+++ a/init/Kconfig	2025-02-27 04:46:57.916702114 -0500
++++ b/init/Kconfig	2025-02-27 04:46:57.916702114 -0500
 @@ -1266,6 +1266,23 @@
  
  	  If unsure, say N here.
@@ -49,10 +49,10 @@ diff -ruN a/init/Kconfig a/init/Kconfig
  config SCHED_AUTOGROUP
  	bool "Automatic process group scheduling"
  	select CGROUPS
-diff -ruN a/kernel/sched/core.c a/kernel/sched/core.c
+diff -ruN a/kernel/sched/core.c b/kernel/sched/core.c
 --- a/kernel/sched/core.c	2025-02-27 07:43:28.851533022 -0500
-+++ a/kernel/sched/core.c	2025-02-27 06:42:52.656889331 -0500
-@@ -4343,6 +4343,132 @@
++++ b/kernel/sched/core.c	2025-02-27 16:07:45.446837868 -0500
+@@ -4343,6 +4343,118 @@
  	return try_to_wake_up(p, state, 0);
  }
  
@@ -103,20 +103,6 @@ diff -ruN a/kernel/sched/core.c a/kernel/sched/core.c
 +        sum += child->bore_data.burst_penalty;
 +    }
 +    __update_child_burst_cache(p, cnt, sum, now);
-+}
-+
-+static inline void update_child_burst_direct(struct task_struct *p, u64 now) {
-+	struct task_struct *child;
-+	u32 cnt = 0;
-+	u32 sum = 0;
-+
-+	list_for_each_entry(child, &p->children, sibling) {
-+		if (!task_is_inheritable(child)) continue;
-+		cnt++;
-+		sum += child->se.burst_penalty;
-+	}
-+
-+	__update_child_burst_cache(p, cnt, sum, now);
 +}
 +
 +static inline u8 __inherit_burst_direct(struct task_struct *p, u64 now) {
@@ -185,7 +171,7 @@ diff -ruN a/kernel/sched/core.c a/kernel/sched/core.c
  /*
   * Perform scheduler related setup for a newly forked process p.
   * p is forked by current.
-@@ -4359,6 +4485,9 @@
+@@ -4359,6 +4471,9 @@
  	p->se.prev_sum_exec_runtime	= 0;
  	p->se.nr_migrations		= 0;
  	p->se.vruntime			= 0;
@@ -195,7 +181,7 @@ diff -ruN a/kernel/sched/core.c a/kernel/sched/core.c
  	INIT_LIST_HEAD(&p->se.group_node);
  
  #ifdef CONFIG_FAIR_GROUP_SCHED
-@@ -4598,6 +4727,9 @@
+@@ -4598,6 +4713,9 @@
  
  void sched_post_fork(struct task_struct *p)
  {
@@ -205,7 +191,7 @@ diff -ruN a/kernel/sched/core.c a/kernel/sched/core.c
  	uclamp_post_fork(p);
  }
  
-@@ -9578,6 +9710,11 @@
+@@ -9578,6 +9696,11 @@
  	BUG_ON(&dl_sched_class + 1 != &stop_sched_class);
  #endif
  
@@ -217,9 +203,9 @@ diff -ruN a/kernel/sched/core.c a/kernel/sched/core.c
  	wait_bit_init();
  
  #ifdef CONFIG_FAIR_GROUP_SCHED
-diff -ruN a/kernel/sched/debug.c a/kernel/sched/debug.c
+diff -ruN a/kernel/sched/debug.c b/kernel/sched/debug.c
 --- a/kernel/sched/debug.c	2025-02-27 07:43:28.851533022 -0500
-+++ a/kernel/sched/debug.c	2025-02-27 06:46:58.865194548 -0500
++++ b/kernel/sched/debug.c	2025-02-27 06:46:58.865194548 -0500
 @@ -547,6 +547,9 @@
  		SPLIT_NS(p->se.sum_exec_runtime),
  		SPLIT_NS(schedstat_val_or_zero(p->stats.sum_sleep_runtime)));
@@ -230,9 +216,9 @@ diff -ruN a/kernel/sched/debug.c a/kernel/sched/debug.c
  #ifdef CONFIG_NUMA_BALANCING
  	SEQ_printf(m, " %d %d", task_node(p), task_numa_group_id(p));
  #endif
-diff -ruN a/kernel/sched/fair.c a/kernel/sched/fair.c
+diff -ruN a/kernel/sched/fair.c b/kernel/sched/fair.c
 --- a/kernel/sched/fair.c	2025-02-27 07:43:28.851533022 -0500
-+++ a/kernel/sched/fair.c	2025-02-27 07:21:04.284220703 -0500
++++ b/kernel/sched/fair.c	2025-02-27 07:21:04.284220703 -0500
 @@ -19,6 +19,9 @@
   *
   *  Adaptive scheduling granularity, math enhancements by Peter Zijlstra
@@ -479,9 +465,9 @@ diff -ruN a/kernel/sched/fair.c a/kernel/sched/fair.c
  	place_entity(cfs_rq, se, 1);
  
  	if (sysctl_sched_child_runs_first && curr && entity_before(curr, se)) {
-diff -ruN a/kernel/sysctl.c a/kernel/sysctl.c
+diff -ruN a/kernel/sysctl.c b/kernel/sysctl.c
 --- a/kernel/sysctl.c	2025-02-27 07:43:28.851533022 -0500
-+++ a/kernel/sysctl.c	2025-02-27 04:46:57.916702114 -0500
++++ b/kernel/sysctl.c	2025-02-27 04:46:57.916702114 -0500
 @@ -133,6 +133,19 @@
  static int ngroups_max = NGROUPS_MAX;
  static const int cap_last_cap = CAP_LAST_CAP;
