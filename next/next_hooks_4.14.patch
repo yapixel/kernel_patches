@@ -1,5 +1,5 @@
 --- ./fs/exec.c.orig	2025-03-04 17:17:54.601281900 -0500
-+++ ./fs/exec.c	2025-03-04 18:25:12.229078936 -0500
++++ ./fs/exec.c	2025-03-04 19:19:29.252966440 -0500
 @@ -1851,12 +1851,26 @@
  	return retval;
  }
@@ -27,17 +27,17 @@
  	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
  }
  
-@@ -1879,6 +1893,10 @@
- 	struct user_arg_ptr argv = {
+@@ -1884,6 +1898,10 @@
  		.is_compat = true,
- 		.ptr.compat = __argv,
+ 		.ptr.compat = __envp,
+ 	};
 +#if defined(CONFIG_KSU) && !defined(CONFIG_KSU_WITH_KPROBES)
 +	if (!ksu_execveat_hook)
 +		ksu_handle_execveat_sucompat((int *)AT_FDCWD, &filename, NULL, NULL, NULL); /* 32-bit su */
 +#endif
- 	};
- 	struct user_arg_ptr envp = {
- 		.is_compat = true,
+ 	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
+ }
+ 
 --- ./fs/open.c.orig	2025-03-04 17:17:54.681091900 -0500
 +++ ./fs/open.c	2025-03-04 18:31:55.378112407 -0500
 @@ -354,6 +354,11 @@
