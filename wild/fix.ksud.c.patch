@@ -1,4 +1,4 @@
---- "./kernel/ksud - Copy.c"	2025-05-19 21:44:44.521937700 -0400
+--- ./kernel/ksud.c	2025-05-19 21:44:44.521937700 -0400
 +++ ./kernel/ksud.c	2025-05-19 22:39:54.940069085 -0400
 @@ -64,6 +64,9 @@
  bool ksu_execveat_hook __read_mostly = true;
