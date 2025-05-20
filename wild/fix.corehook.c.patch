@@ -1,6 +1,6 @@
---- ./kernel/core_hook.c.orig	2025-05-13 05:33:47.746235400 -0400
-+++ ./kernel/core_hook.c	2025-05-13 21:18:33.153308520 -0400
-@@ -997,12 +997,35 @@
+--- ./kernel/core_hook.c	2025-05-19 21:44:44.521937700 -0400
++++ ./kernel/core_hook.c	2025-05-19 22:35:32.771346161 -0400
+@@ -999,12 +999,35 @@
  		return;
  	}
  
@@ -36,3 +36,46 @@
  int ksu_handle_setuid(struct cred *new, const struct cred *old)
  {
  	// this hook is used for umounting overlayfs for some uid, if there isn't any module mounted, just ignore it!
+@@ -1083,26 +1106,30 @@
+ 		current->pid);
+ #endif
+ 
++#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
++	// susfs come first, and lastly umount by ksu, make sure umount in reversed order
++	susfs_try_umount_all(new_uid.val);
++#else
+ 	// fixme: use `collect_mounts` and `iterate_mount` to iterate all mountpoint and
+ 	// filter the mountpoint whose target is `/data/adb`
+-	try_umount("/odm", true, 0);
+-	try_umount("/system", true, 0);
+-	try_umount("/system_ext", true, 0);
+-	try_umount("/vendor", true, 0);
+-	try_umount("/product", true, 0);
+-	try_umount("/data/adb/modules", false, MNT_DETACH);
++	ksu_try_umount("/odm", true, 0);
++	ksu_try_umount("/system", true, 0);
++	ksu_try_umount("/system_ext", true, 0);
++	ksu_try_umount("/vendor", true, 0);
++	ksu_try_umount("/product", true, 0);
++	ksu_try_umount("/data/adb/modules", false, MNT_DETACH);
+ 
+ 	// try umount ksu temp path
+-	try_umount("/debug_ramdisk", false, MNT_DETACH);
+-	try_umount("/sbin", false, MNT_DETACH);
++	ksu_try_umount("/debug_ramdisk", false, MNT_DETACH);
++	ksu_try_umount("/sbin", false, MNT_DETACH);
+ 	
+ 	// try umount hosts file
+-	try_umount("/system/etc/hosts", false, MNT_DETACH);
++	ksu_try_umount("/system/etc/hosts", false, MNT_DETACH);
+ 
+ 	// try umount lsposed dex2oat bins
+-	try_umount("/apex/com.android.art/bin/dex2oat64", false, MNT_DETACH);
+-	try_umount("/apex/com.android.art/bin/dex2oat32", false, MNT_DETACH);
+-
++	ksu_try_umount("/apex/com.android.art/bin/dex2oat64", false, MNT_DETACH);
++	ksu_try_umount("/apex/com.android.art/bin/dex2oat32", false, MNT_DETACH);
++#endif
+ 	return 0;
+ }
+ 
