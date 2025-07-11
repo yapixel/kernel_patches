@@ -1,5 +1,5 @@
 --- "./kernel/core_hook.c"	2025-07-11 05:27:15.370082400 -0400
-+++ "./kernel/core_hook.c	2025-07-11 05:41:33.997468651 -0400
++++ "./kernel/core_hook.c"	2025-07-11 05:41:33.997468651 -0400
 @@ -48,24 +48,95 @@
  #include "manager.h"
  #include "selinux/selinux.h"
