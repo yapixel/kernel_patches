@@ -1,0 +1,10 @@
+--- ./kernel/kernel_compat.h	2025-07-17 18:47:56.668103300 -0400
++++ ./kernel/kernel_compat.h	2025-07-18 02:01:12.007646401 -0400
+@@ -32,7 +32,6 @@
+ #endif
+ 
+ extern void ksu_android_ns_fs_check();
+-extern int ksu_access_ok(const void *addr, unsigned long size);
+ extern struct file *ksu_filp_open_compat(const char *filename, int flags,
+ 					 umode_t mode);
+ extern ssize_t ksu_kernel_read_compat(struct file *p, void *buf, size_t count,
