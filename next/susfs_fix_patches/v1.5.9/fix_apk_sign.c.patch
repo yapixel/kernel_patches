@@ -1,8 +1,6 @@
-diff --git a/kernel/apk_sign.c b/kernel/apk_sign.c
-index c1e803d7..1e8f98e6 100644
---- a/kernel/apk_sign.c
-+++ b/kernel/apk_sign.c
-@@ -315,7 +315,7 @@ module_param_cb(ksu_debug_manager_uid, &expected_size_ops,
+--- ./kernel/apk_sign.c	2025-07-19 15:34:49.962023700 -0400
++++ ./kernel/apk_sign.c	2025-07-19 15:41:30.015681476 -0400
+@@ -363,7 +363,7 @@
  
  #endif
  
@@ -11,15 +9,15 @@ index c1e803d7..1e8f98e6 100644
  {
  	int tries = 0;
  
-@@ -332,6 +332,10 @@ bool is_manager_apk(char *path)
- 		pr_info("%s: timeout for %s\n", __func__, path);
- 		return false;
- 	}
--
+@@ -388,6 +388,11 @@
+ #ifdef CONFIG_KSU_DEBUG
+ 	return check_v2_signature(path, EXPECTED_MANAGER_SIZE, EXPECTED_MANAGER_HASH);
+ #else
 +#ifdef CONFIG_KSU_SUSFS
-+	return (check_v2_signature(path, EXPECTED_NEXT_SIZE, EXPECTED_NEXT_HASH) ||
++	return (check_v2_signature(path, expected_manager_size, expected_manager_hash) ||
 +			check_v2_signature(path, 384, "7e0c6d7278a3bb8e364e0fcba95afaf3666cf5ff3c245a3b63c8833bd0445cc4")); // 5ec1cff
-+#else	
- 	return check_v2_signature(path, EXPECTED_NEXT_SIZE, EXPECTED_NEXT_HASH);
++#else
+ 	return check_v2_signature(path, expected_manager_size, expected_manager_hash);
+ #endif
 +#endif
  }
