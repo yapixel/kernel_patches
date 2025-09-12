@@ -2,7 +2,7 @@ diff --git a/kernel/core_hook.h b/kernel/core_hook.h
 index 12345678..87654321 100644
 --- a/kernel/core_hook.h
 +++ b/kernel/core_hook.h
-@@ -10,6 +10,12 @@
+@@ -8,6 +8,18 @@ void ksu_core_exit(void);
  int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
  		     int *flags);
  int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags);
@@ -12,9 +12,12 @@ index 12345678..87654321 100644
 +                           void *argv, void *envp, int *flags);
 +int ksu_handle_devpts(struct inode *inode, struct file *file);
 +#endif
- int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
- 		     unsigned long arg4, unsigned long arg5);
- int ksu_handle_rename(struct dentry *old_dentry, struct dentry *new_dentry);
++int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
++		     unsigned long arg4, unsigned long arg5);
++int ksu_handle_rename(struct dentry *old_dentry, struct dentry *new_dentry);
++#ifdef CONFIG_KSU_SUSFS
++bool is_zygote_child;
++#endif
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
 index edb2e17f..3bedb0da 100644
 --- a/kernel/core_hook.c
@@ -97,6 +100,7 @@ index edb2e17f..3bedb0da 100644
 -    try_umount("/system_ext", true, 0);
 -    try_umount("/data/adb/modules", false, MNT_DETACH);
 -
+-    // try umount ksu temp path
 -    // try umount ksu temp path
 -    try_umount("/debug_ramdisk", false, MNT_DETACH);
 +    #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
