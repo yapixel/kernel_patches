@@ -2,55 +2,7 @@ diff --git a/kernel/core_hook.c b/kernel/core_hook.c
 index edb2e17f..3bedb0da 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
-@@ -33,6 +33,10 @@
- #include <linux/vmalloc.h>
- #endif
- 
-+#ifdef CONFIG_KSU_SUSFS
-+#include <linux/susfs.h>
-+#endif // #ifdef CONFIG_KSU_SUSFS
-+
- #include "allowlist.h"
- #include "arch.h"
- #include "core_hook.c"
-@@ -42,7 +46,39 @@
- #include "manager.h"
- #include "selinux/selinux.h"
- #include "throne_tracker.h"
-+#include "kernel_compat.h"
-+
-+#ifdef CONFIG_KSU_SUSFS
-+bool susfs_is_allow_su(void)
-+{
-+	if (is_manager()) {
-+		// we are manager, allow!
-+		return true;
-+	}
-+	return ksu_is_allow_uid(current_uid().val);
-+}
-+
-+extern u32 susfs_zygote_sid;
-+extern bool susfs_is_mnt_devname_ksu(struct path *path);
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+extern void susfs_run_sus_path_loop(uid_t uid);
-+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
-+extern bool susfs_is_log_enabled __read_mostly;
-+#endif // #ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
-+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-+static bool susfs_is_umount_for_zygote_system_process_enabled = false;
-+extern bool susfs_hide_sus_mnts_for_all_procs;
-+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-+#ifdef CONFIG_KSU_SUSFS_SUS_SU
-+extern bool susfs_is_sus_su_ready;
-+extern int susfs_sus_su_working_mode;
-+extern bool susfs_is_sus_su_hooks_enabled __read_mostly;
-+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_SU
-+#endif // #ifdef CONFIG_KSU_SUSFS
-+
- static bool ksu_module_mounted = false;
- 
-@@ -515,6 +547,11 @@ static bool is_appuid(kuid_t uid)
+@@ -515,6 +515,11 @@ static bool is_appuid(kuid_t uid)
  	return appid >= FIRST_APPLICATION_UID && appid <= LAST_APPLICATION_UID;
  }
  
@@ -62,7 +14,7 @@ index edb2e17f..3bedb0da 100644
  static bool should_umount(struct path *path)
  {
  	if (!path) {
-@@ -527,11 +564,15 @@ static bool should_umount(struct path *path)
+@@ -527,11 +532,15 @@ static bool should_umount(struct path *path)
  		return false;
  	}
  
@@ -78,7 +30,7 @@ index edb2e17f..3bedb0da 100644
  }
  
  static void ksu_umount_mnt(struct path *path, int flags)
-@@ -542,7 +583,11 @@ static void ksu_umount_mnt(struct path *path, int flags)
+@@ -542,7 +551,11 @@ static void ksu_umount_mnt(struct path *path, int flags)
  	}
  }
  
@@ -91,7 +43,7 @@ index edb2e17f..3bedb0da 100644
  {
  	struct path path;
  	int err = kern_path(mnt, 0, &path);
-@@ -550,9 +595,24 @@ static void try_umount(const char *mnt, bool check_mnt, int flags)
+@@ -550,9 +563,24 @@ static void try_umount(const char *mnt, bool check_mnt, int flags)
  	if (err) {
  		return;
  	}
@@ -133,11 +85,12 @@ index edb2e17f..3bedb0da 100644
  int ksu_handle_setuid(struct cred *new, const struct cred *old)
  {
  	// this hook is used for umounting overlayfs for some uid, if there isn't any module mounted, just ignore it!
-@@ -584,6 +644,21 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -584,6 +612,21 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  		return 0;
  	}
  
 +#ifdef CONFIG_KSU_SUSFS
++	bool is_zygote_child = susfs_is_sid_equal(old->security, susfs_zygote_sid);
 +	if (is_some_system_uid(new_uid.val) && is_zygote_child) {
 +		if (ksu_is_allow_uid(new_uid.val)) {
 +			return 0;
@@ -154,7 +107,7 @@ index edb2e17f..3bedb0da 100644
  	if (!is_appuid(new_uid) || is_unsupported_uid(new_uid.val)) {
  		// pr_info("handle setuid ignore non application or isolated uid: %d\n", new_uid.val);
  		return 0;
-@@ -595,6 +670,16 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -595,6 +638,16 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  		return 0;
  	}
  
@@ -171,7 +124,7 @@ index edb2e17f..3bedb0da 100644
  	if (!ksu_uid_should_umount(new_uid.val)) {
  		return 0;
  	} else {
-@@ -606,7 +691,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -606,7 +659,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  do_umount:
  	// check old process's selinux context, if it is not zygote, ignore it!
  	// because some su apps may setuid to untrusted_app but they are in global mount namespace
@@ -184,7 +137,7 @@ index edb2e17f..3bedb0da 100644
  		pr_info("handle umount ignore non zygote child: %d\n",
  			current->pid);
  		return 0;
-@@ -617,6 +706,19 @@ do_umount:
+@@ -617,6 +674,19 @@ do_umount:
  		current->pid);
  #endif
  
@@ -203,7 +156,7 @@ index edb2e17f..3bedb0da 100644
  	// fixme: use `collect_mounts` and `iterate_mount` to iterate all mountpoint and
  	// filter the mountpoint whose target is `/data/adb`
  	try_umount("/odm", true, 0);
-@@ -628,6 +730,7 @@ do_umount:
+@@ -628,6 +698,7 @@ do_umount:
 
  	// try umount ksu temp path
  	try_umount("/debug_ramdisk", false, MNT_DETACH);
