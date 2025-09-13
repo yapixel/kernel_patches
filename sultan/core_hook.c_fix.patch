@@ -19,13 +19,15 @@ index edb2e17f..4a7b2c1a 100644
 +	return 0;
 +}
 +#endif
-+
-@@ -374,6 +388,25 @@ static int renameat_handler_pre(struct kprobe *p, struct pt_regs *regs)
+
+@@ -374,6 +374,44 @@ static int renameat_handler_pre(struct kprobe *p, struct pt_regs *regs)
+ {
+ 	return 0;
  }
  
  static struct kprobe renameat_kp = {
-@@ -388,6 +421,44 @@ static struct kprobe renameat_kp = {
-     .pre_handler = renameat_handler_pre,
+ 	.symbol_name = "vfs_rename",
+ 	.pre_handler = renameat_handler_pre,
  };
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_SU
@@ -48,7 +50,7 @@ index edb2e17f..4a7b2c1a 100644
 +static int devpts_handler_pre(struct kprobe *p, struct pt_regs *regs)
 +{
 +    struct inode *inode = (struct inode *)PT_REGS_PARM1(regs);
-+    struct file *file = (struct file *)PT_REGS_PARM2(regs);
++    struct file *file = (struct file *)PT_REG_PARM2(regs);
 +
 +    return ksu_handle_devpts(inode, file);
 +}
@@ -58,8 +60,8 @@ index edb2e17f..4a7b2c1a 100644
 +    .pre_handler = devpts_handler_pre,
 +};
 +#endif
-+
-@@ -396,6 +467,16 @@ __maybe_unused int ksu_kprobe_init(void)
+
+@@ -396,6 +434,16 @@ __maybe_unused int ksu_kprobe_init(void)
          return rc;
      }
  
@@ -76,7 +78,7 @@ index edb2e17f..4a7b2c1a 100644
      rc = register_kprobe(&renameat_kp);
      pr_info("renameat kp: %d\n", rc);
  
-@@ -406,6 +487,12 @@ __maybe_unused int ksu_kprobe_exit(void)
+@@ -406,6 +454,12 @@ __maybe_unused int ksu_kprobe_exit(void)
  {
      unregister_kprobe(&prctl_kp);
      unregister_kprobe(&renameat_kp);
@@ -86,8 +88,8 @@ index edb2e17f..4a7b2c1a 100644
 +#endif
      return 0;
  }
- 
-@@ -515,6 +602,11 @@ static bool is_appuid(kuid_t uid)
+
+@@ -515,6 +569,11 @@ static bool is_appuid(kuid_t uid)
  	return appid >= FIRST_APPLICATION_UID && appid <= LAST_APPLICATION_UID;
  }
  
@@ -99,7 +101,7 @@ index edb2e17f..4a7b2c1a 100644
  static bool should_umount(struct path *path)
  {
  	if (!path) {
-@@ -527,11 +619,15 @@ static bool should_umount(struct path *path)
+@@ -527,11 +586,15 @@ static bool should_umount(struct path *path)
  		return false;
  	}
  
@@ -115,7 +117,7 @@ index edb2e17f..4a7b2c1a 100644
  }
  
  static void ksu_umount_mnt(struct path *path, int flags)
-@@ -542,7 +638,11 @@ static void ksu_umount_mnt(struct path *path, int flags)
+@@ -542,7 +605,11 @@ static void ksu_umount_mnt(struct path *path, int flags)
  	}
  }
  
@@ -128,7 +130,7 @@ index edb2e17f..4a7b2c1a 100644
  {
  	struct path path;
  	int err = kern_path(mnt, 0, &path);
-@@ -550,9 +650,24 @@ static void try_umount(const char *mnt, bool check_mnt, int flags)
+@@ -550,9 +617,24 @@ static void try_umount(const char *mnt, bool check_mnt, int flags)
  	if (err) {
  		return;
  	}
@@ -170,7 +172,7 @@ index edb2e17f..4a7b2c1a 100644
 +
  int ksu_handle_setuid(struct cred *new, const struct cred *old)
  {
-@@ -584,6 +699,21 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -584,6 +666,21 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  		return 0;
  	}
  
@@ -192,7 +194,7 @@ index edb2e17f..4a7b2c1a 100644
  	if (!is_appuid(new_uid) || is_unsupported_uid(new_uid.val)) {
  		// pr_info("handle setuid ignore non application or isolated uid: %d\n", new_uid.val);
  		return 0;
-@@ -595,6 +725,16 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -595,6 +692,16 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  		return 0;
  	}
  
@@ -209,7 +211,7 @@ index edb2e17f..4a7b2c1a 100644
  	if (!ksu_uid_should_umount(new_uid.val)) {
  		return 0;
  	} else {
-@@ -606,7 +746,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -606,7 +713,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  do_umount:
  	// check old process's selinux context, if it is not zygote, ignore it!
  	// because some su apps may setuid to untrusted_app but they are in global mount namespace
@@ -222,7 +224,7 @@ index edb2e17f..4a7b2c1a 100644
  		pr_info("handle umount ignore non zygote child: %d\n",
  			current->pid);
  		return 0;
-@@ -617,6 +761,19 @@ do_umount:
+@@ -617,6 +728,19 @@ do_umount:
  		current->pid);
  #endif
  
@@ -241,7 +243,7 @@ index edb2e17f..4a7b2c1a 100644
  	// fixme: use `collect_mounts` and `iterate_mount` to iterate all mountpoint and
  	// filter the mountpoint whose target is `/data/adb`
  	try_umount("/odm", true, 0);
-@@ -628,6 +785,7 @@ do_umount:
+@@ -628,6 +752,7 @@ do_umount:
  
  	// try umount ksu temp path
  	try_umount("/debug_ramdisk", false, MNT_DETACH);
