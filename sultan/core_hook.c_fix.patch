@@ -13,13 +13,13 @@ index edb2e17f..3bedb0da 100644
  #include "allowlist.h"
  #include "arch.h"
  #include "core_hook.h"
-@@ -42,14 +46,88 @@
+@@ -42,7 +46,55 @@
  #include "manager.h"
  #include "selinux/selinux.h"
  #include "throne_tracker.h"
 -#include "throne_tracker.h"
- #include "kernel_compat.h"
- 
++#include "kernel_compat.h"
++
 +#ifdef CONFIG_KSU_SUSFS
 +bool susfs_is_allow_su(void)
 +{
@@ -61,54 +61,94 @@ index edb2e17f..3bedb0da 100644
 +extern bool susfs_is_sus_su_hooks_enabled __read_mostly;
 +extern bool ksu_devpts_hook;
 +#endif // #ifdef CONFIG_KSU_SUSFS_SUS_SU
-+
-+static inline void susfs_on_post_fs_data(void) {
-+	struct path path;
-+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-+	if (!kern_path(DATA_ADB_UMOUNT_FOR_ZYGOTE_SYSTEM_PROCESS, 0, &path)) {
-+		susfs_is_umount_for_zygote_system_process_enabled = true;
-+		path_put(&path);
-+	}
-+	pr_info("susfs_is_umount_for_zygote_system_process_enabled: %d\n", susfs_is_umount_for_zygote_system_process_enabled);
-+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT
-+	if (!kern_path(DATA_ADB_NO_AUTO_ADD_SUS_BIND_MOUNT, 0, &path)) {
-+		susfs_is_auto_add_sus_bind_mount_enabled = false;
-+		path_put(&path);
-+	}
-+	pr_info("susfs_is_auto_add_sus_bind_mount_enabled: %d\n", susfs_is_auto_add_sus_bind_mount_enabled);
-+#endif // #ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT
-+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT
-+	if (!kern_path(DATA_ADB_NO_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT, 0, &path)) {
-+		susfs_is_auto_add_sus_ksu_default_mount_enabled = false;
-+		path_put(&path);
-+	}
-+	pr_info("susfs_is_auto_add_sus_ksu_default_mount_enabled: %d\n", susfs_is_auto_add_sus_ksu_default_mount_enabled);
-+#endif // #ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT
-+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT
-+	if (!kern_path(DATA_ADB_NO_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT, 0, &path)) {
-+		susfs_is_auto_add_try_umount_for_bind_mount_enabled = false;
-+		path_put(&path);
-+	}
-+	pr_info("susfs_is_auto_add_try_umount_for_bind_mount_enabled: %d\n", susfs_is_auto_add_try_umount_for_bind_mount_enabled);
-+#endif // #ifdef CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT
-+}
 +#endif // #ifdef CONFIG_KSU_SUSFS
 +
- static bool ksu_module_mounted = false;
- 
- extern int handle_sepolicy(unsigned long arg3, void __user *arg4);
-@@ -325,6 +403,9 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
- 			if (!post_fs_data_lock) {
- 				post_fs_data_lock = true;
- 				pr_info("post-fs-data triggered\n");
-+#ifdef CONFIG_KSU_SUSFS
-+				susfs_on_post_fs_data();
+@@ -141,6 +149,20 @@ int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
+ int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
+ {
+ 	return 0;
+ }
++#ifdef CONFIG_KSU_SUSFS_SUS_SU
++int ksu_handle_execve_ksud(int *fd, struct filename **filename_ptr,
++                           void *argv, void *envp, int *flags)
++{
++    pr_info("ksu_handle_execve_ksud called for %s\n", (*filename_ptr)->name);
++    return 0;
++}
++int ksu_handle_devpts(struct inode *inode, struct file *file)
++{
++    pr_info("ksu_handle_devpts called\n");
++    return 0;
++}
 +#endif
- 				on_post_fs_data();
- 			}
- 			break;
-@@ -515,6 +596,11 @@ static bool is_appuid(kuid_t uid)
++
+@@ -374,6 +396,25 @@ static int renameat_handler_pre(struct kprobe *p, struct pt_regs *regs)
+ }
+ 
+ static struct kprobe renameat_kp = {
+@@ -388,6 +429,42 @@ static struct kprobe renameat_kp = {
+     .pre_handler = renameat_handler_pre,
+ };
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_SU
++static int execveat_handler_pre(struct kprobe *p, struct pt_regs *regs)
++{
++    struct filename *filename = (struct filename *)PT_REGS_PARM2(regs);
++    int fd = (int)PT_REGS_PARM1(regs);
++    void *argv = (void *)PT_REGS_PARM3(regs);
++    void *envp = (void *)PT_REGS_PARM4(regs);
++    int flags = (int)PT_REGS_PARM5(regs);
++
++    return ksu_handle_execve_ksud(&fd, &filename, argv, envp, &flags);
++}
++
++static struct kprobe execveat_kp = {
++    .symbol_name = "do_execveat_common",
++    .pre_handler = execveat_handler_pre,
++};
++
++static int devpts_handler_pre(struct kprobe *p, struct pt_regs *regs)
++{
++    struct inode *inode = (struct inode *)PT_REGS_PARM1(regs);
++    struct file *file = (struct file *)PT_REGS_PARM2(regs);
++
++    return ksu_handle_devpts(inode, file);
++}
++
++static struct kprobe devpts_kp = {
++    .symbol_name = "devpts_mknod",
++    .pre_handler = devpts_handler_pre,
++};
++#endif
++
+@@ -396,6 +473,16 @@ __maybe_unused int ksu_kprobe_init(void)
+         return rc;
+     }
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_SU
++    rc = register_kprobe(&execveat_kp);
++    if (rc) {
++        pr_info("execveat kprobe failed: %d.\n", rc);
++        return rc;
++    }
++    rc = register_kprobe(&devpts_kp);
++    pr_info("devpts kp: %d\n", rc);
++#endif
++
+     rc = register_kprobe(&renameat_kp);
+     pr_info("renameat kp: %d\n", rc);
+ 
+@@ -406,6 +493,12 @@ __maybe_unused int ksu_kprobe_exit(void)
+ {
+     unregister_kprobe(&prctl_kp);
+     unregister_kprobe(&renameat_kp);
++#ifdef CONFIG_KSU_SUSFS_SUS_SU
++    unregister_kprobe(&execveat_kp);
++    unregister_kprobe(&devpts_kp);
++#endif
+     return 0;
+ }
+@@ -515,6 +608,11 @@ static bool is_appuid(kuid_t uid)
  	return appid >= FIRST_APPLICATION_UID && appid <= LAST_APPLICATION_UID;
  }
  
@@ -120,7 +160,7 @@ index edb2e17f..3bedb0da 100644
  static bool should_umount(struct path *path)
  {
  	if (!path) {
-@@ -527,11 +613,15 @@ static bool should_umount(struct path *path)
+@@ -527,11 +625,15 @@ static bool should_umount(struct path *path)
  		return false;
  	}
  
@@ -136,7 +176,7 @@ index edb2e17f..3bedb0da 100644
  }
  
  static void ksu_umount_mnt(struct path *path, int flags)
-@@ -542,7 +632,11 @@ static void ksu_umount_mnt(struct path *path, int flags)
+@@ -542,7 +644,11 @@ static void ksu_umount_mnt(struct path *path, int flags)
  	}
  }
  
@@ -149,40 +189,57 @@ index edb2e17f..3bedb0da 100644
  {
  	struct path path;
  	int err = kern_path(mnt, 0, &path);
-@@ -562,9 +656,32 @@ static void try_umount(const char *mnt, bool check_mnt, int flags)
+@@ -550,9 +656,26 @@ static void try_umount(const char *mnt, bool check_mnt, int flags)
+ 	if (err) {
  		return;
  	}
  
+ 	// we are only interest in some specific mounts
+ 	if (check_mnt && !should_umount(&path)) {
+ 		path_put(&path);
+ 		return;
+ 	}
+ 
+-	ksu_umount_mnt(&path, flags);
++	int err_umount = ksu_umount_mnt(&path, flags);
 +#if defined(CONFIG_KSU_SUSFS_TRY_UMOUNT) && defined(CONFIG_KSU_SUSFS_ENABLE_LOG)
 +	if (susfs_is_log_enabled) {
 +		pr_info("susfs: umounting '%s' for uid: %d\n", mnt, uid);
 +	}
 +#endif
++	if (err_umount) {
++		pr_warn("umount %s failed: %d\n", mnt, err_umount);
++	}
++	path_put(&path);
++}
 +
- 	ksu_umount_mnt(&path, flags);
- }
- 
 +#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 +void susfs_try_umount_all(uid_t uid) {
 +	susfs_try_umount(uid);
 +	/* For Legacy KSU only */
-+	try_umount("/odm", true, 0, uid);
 +	try_umount("/system", true, 0, uid);
 +	try_umount("/system_ext", true, 0, uid);
 +	try_umount("/vendor", true, 0, uid);
 +	try_umount("/product", true, 0, uid);
++	try_umount("/odm", true, 0, uid);
 +	// - For '/data/adb/modules' we pass 'false' here because it is a loop device that we can't determine whether 
 +	//   its dev_name is KSU or not, and it is safe to just umount it if it is really a mountpoint
 +	try_umount("/data/adb/modules", false, MNT_DETACH, uid);
 +	/* For both Legacy KSU and Magic Mount KSU */
 +	try_umount("/debug_ramdisk", true, MNT_DETACH, uid);
++	try_umount("/sbin", false, MNT_DETACH, uid);
++	// try umount hosts file
++	try_umount("/system/etc/hosts", false, MNT_DETACH, uid);
++	// try umount lsposed dex2oat bins
++	try_umount("/apex/com.android.art/bin/dex2oat64", false, MNT_DETACH, uid);
++	try_umount("/apex/com.android.art/bin/dex2oat32", false, MNT_DETACH, uid);
 +}
 +#endif
 +
  int ksu_handle_setuid(struct cred *new, const struct cred *old)
  {
  	// this hook is used for umounting overlayfs for some uid, if there isn't any module mounted, just ignore it!
-@@ -584,6 +701,21 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -584,6 +707,21 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  		return 0;
  	}
  
@@ -203,7 +260,7 @@ index edb2e17f..3bedb0da 100644
  	if (!is_appuid(new_uid) || is_unsupported_uid(new_uid.val)) {
  		// pr_info("handle setuid ignore non application or isolated uid: %d\n", new_uid.val);
  		return 0;
-@@ -595,6 +727,16 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -595,6 +733,16 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  		return 0;
  	}
  
@@ -220,7 +277,7 @@ index edb2e17f..3bedb0da 100644
  	if (!ksu_uid_should_umount(new_uid.val)) {
  		return 0;
  	} else {
-@@ -606,7 +748,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -606,7 +754,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  do_umount:
  	// check old process's selinux context, if it is not zygote, ignore it!
  	// because some su apps may setuid to untrusted_app but they are in global mount namespace
@@ -233,7 +290,7 @@ index edb2e17f..3bedb0da 100644
  		pr_info("handle umount ignore non zygote child: %d\n",
  			current->pid);
  		return 0;
-@@ -617,6 +763,19 @@ do_umount:
+@@ -617,6 +769,19 @@ do_umount:
  		current->pid);
  #endif
  
@@ -252,7 +309,7 @@ index edb2e17f..3bedb0da 100644
  	// fixme: use `collect_mounts` and `iterate_mount` to iterate all mountpoint and
  	// filter the mountpoint whose target is `/data/adb`
  	try_umount("/odm", true, 0);
-@@ -628,6 +787,7 @@ do_umount:
+@@ -628,6 +793,7 @@ do_umount:
 
  	// try umount ksu temp path
  	try_umount("/debug_ramdisk", false, MNT_DETACH);
