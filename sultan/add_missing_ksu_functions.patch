@@ -2,10 +2,11 @@ diff --git a/KernelSU/kernel/ksu.c b/KernelSU/kernel/ksu.c
 index 0a7b5c3..1e2f8d7 100644
 --- a/KernelSU/kernel/ksu.c
 +++ b/KernelSU/kernel/ksu.c
-@@ -81,6 +81,64 @@ void kernelsu_exit(void)
- 	ksu_core_exit();
- }
- 
+@@ -91,3 +91,64 @@ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("weishu");
+ MODULE_DESCRIPTION("Android KernelSU");
+ MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
++
 +#include <linux/uaccess.h>
 +#include <linux/selinux.h>
 +
@@ -68,6 +69,3 @@ index 0a7b5c3..1e2f8d7 100644
 +
 +    return 0;
 +}
-+
- module_init(kernelsu_init);
- module_exit(kernelsu_exit);
