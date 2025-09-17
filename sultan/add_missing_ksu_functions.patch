@@ -1,22 +1,13 @@
 diff --git a/KernelSU/kernel/ksu.c b/KernelSU/kernel/ksu.c
-index <current_index>..<new_index> 100644
+index 0a7b5c3..1e2f8d7 100644
 --- a/KernelSU/kernel/ksu.c
 +++ b/KernelSU/kernel/ksu.c
-@@ -18,6 +18,8 @@
- #include "ksu.h"
- #include "throne_tracker.h"
+@@ -81,6 +81,64 @@ void kernelsu_exit(void)
+ 	ksu_core_exit();
+ }
  
 +#include <linux/uaccess.h>
 +#include <linux/selinux.h>
- static struct workqueue_struct *ksu_workqueue;
- 
- bool ksu_queue_work(struct work_struct *work)
-@@ -27,6 +29,58 @@ bool ksu_queue_work(struct work_struct *work)
- 
- extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
- 					void *argv, void *envp, int *flags);
-+extern u32 ksu_get_devpts_sid(void);
-+extern bool susfs_is_current_ksu_domain(void);
 +
 +#define SU_PATH "/su"
 +#define KSUD_PATH "/system/bin/ksud"
@@ -36,7 +27,6 @@ index <current_index>..<new_index> 100644
 +        return 0;
 +    }
 +
-+    // Redirect /su to /system/bin/ksud
 +    pr_info("ksu_handle_execveat_ksud: redirecting %s to %s\n", su, KSUD_PATH);
 +    memcpy((void *)filename->name, KSUD_PATH, sizeof(KSUD_PATH));
 +    escape_to_root();
@@ -56,7 +46,6 @@ index <current_index>..<new_index> 100644
 +        return PTR_ERR(filename);
 +    }
 +
-+    // Call execveat_ksud handler
 +    ret = ksu_handle_execveat_ksud(&fd, &filename, NULL, NULL, &flags);
 +    putname(filename);
 +    return ret;
@@ -68,7 +57,6 @@ index <current_index>..<new_index> 100644
 +        return 0;
 +    }
 +
-+    // Apply KSU devpts SID if in KSU domain
 +    if (susfs_is_current_ksu_domain()) {
 +        struct inode_security_struct *isec = inode_security(inode);
 +        if (isec) {
@@ -80,6 +68,6 @@ index <current_index>..<new_index> 100644
 +
 +    return 0;
 +}
- 
- extern int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr,
- 				    void *argv, void *envp, int *flags);
++
+ module_init(kernelsu_init);
+ module_exit(kernelsu_exit);
