@@ -1,0 +1,85 @@
+diff --git a/KernelSU/kernel/ksu.c b/KernelSU/kernel/ksu.c
+index <current_index>..<new_index> 100644
+--- a/KernelSU/kernel/ksu.c
++++ b/KernelSU/kernel/ksu.c
+@@ -18,6 +18,8 @@
+ #include "ksu.h"
+ #include "throne_tracker.h"
+ 
++#include <linux/uaccess.h>
++#include <linux/selinux.h>
+ static struct workqueue_struct *ksu_workqueue;
+ 
+ bool ksu_queue_work(struct work_struct *work)
+@@ -27,6 +29,58 @@ bool ksu_queue_work(struct work_struct *work)
+ 
+ extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
+ 					void *argv, void *envp, int *flags);
++extern u32 ksu_get_devpts_sid(void);
++extern bool susfs_is_current_ksu_domain(void);
++
++#define SU_PATH "/su"
++#define KSUD_PATH "/system/bin/ksud"
++
++int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr,
++                             void *argv, void *envp, int *flags)
++{
++    struct filename *filename;
++    const char su[] = SU_PATH;
++
++    if (unlikely(!filename_ptr || !*filename_ptr)) {
++        return 0;
++    }
++
++    filename = *filename_ptr;
++    if (likely(memcmp(filename->name, su, sizeof(su)))) {
++        return 0;
++    }
++
++    // Redirect /su to /system/bin/ksud
++    pr_info("ksu_handle_execveat_ksud: redirecting %s to %s\n", su, KSUD_PATH);
++    memcpy((void *)filename->name, KSUD_PATH, sizeof(KSUD_PATH));
++    escape_to_root();
++
++    return 0;
++}
++
++int ksu_handle_execve_ksud(const char __user *filename_user,
++                           const char __user *const __user *__argv)
++{
++    int fd = AT_FDCWD;
++    int flags = 0;
++    struct filename *filename = getname(filename_user);
++    int ret;
++
++    if (IS_ERR(filename)) {
++        return PTR_ERR(filename);
++    }
++
++    // Call execveat_ksud handler
++    ret = ksu_handle_execveat_ksud(&fd, &filename, NULL, NULL, &flags);
++    putname(filename);
++    return ret;
++}
++
++int ksu_handle_devpts(struct inode *inode)
++{
++    if (inode == NULL) {
++        return 0;
++    }
++
++    // Apply KSU devpts SID if in KSU domain
++    if (susfs_is_current_ksu_domain()) {
++        struct inode_security_struct *isec = inode_security(inode);
++        if (isec) {
++            pr_info("ksu_handle_devpts: labeling inode with KSU devpts SID\n");
++            isec->sid = ksu_get_devpts_sid();
++            isec->initialized = LABEL_INITIALIZED;
++        }
++    }
++
++    return 0;
++}
+ 
+ extern int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr,
+ 				    void *argv, void *envp, int *flags);
