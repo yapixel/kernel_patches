@@ -1,4 +1,5 @@
---- a/fs/namei.c+++ b/fs/namei.c
+--- ./fs/namei.c
++++ ./fs/namei.c
 @@ -130,6 +130,10 @@
  
  #define EMBEDDED_NAME_MAX (PATH_MAX - offsetof(struct filename, iname))
@@ -19,7 +20,9 @@
 +#endif
   return result;
  }
- --- a/fs/read_write.c+++ b/fs/read_write.c
+ 
+ --- ./fs/read_write.c
+ +++ ./fs/read_write.c
 @@ -586,8 +586,18 @@ ssize_t ksys_read(unsigned int fd, char __user *buf, size_t count)
   return ret;
  }
