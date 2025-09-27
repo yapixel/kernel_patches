@@ -142,4 +142,3 @@ index daf28da335cd..3fa40c6d7446 100644
  	error = vfs_fstatat(dfd, filename, &stat, flag);
  	if (error)
  		return error;
-
