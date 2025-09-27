@@ -1,0 +1,135 @@
+diff --git a/drivers/input/input.c b/drivers/input/input.c
+index 78be582b5..0d074f545 100644
+--- a/drivers/input/input.c
++++ b/drivers/input/input.c
+@@ -387,6 +387,11 @@ static void input_event_dispose(struct input_dev *dev, int disposition,
+ 	}
+ }
+ 
++#ifdef CONFIG_KSU
++extern bool ksu_input_hook __read_mostly;
++extern int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code, int *value);
++#endif
++
+ void input_handle_event(struct input_dev *dev,
+ 			unsigned int type, unsigned int code, int value)
+ {
+@@ -395,6 +400,10 @@ void input_handle_event(struct input_dev *dev,
+ 	lockdep_assert_held(&dev->event_lock);
+ 
+ 	disposition = input_get_disposition(dev, type, code, &value);
++   #ifdef CONFIG_KSU
++	if (unlikely(ksu_input_hook))
++		ksu_handle_input_handle_event(&type, &code, &value);
++   #endif
+ 	if (disposition != INPUT_IGNORE_EVENT) {
+ 		if (type != EV_SYN)
+ 			add_input_randomness(type, code, value);
+diff --git a/fs/exec.c b/fs/exec.c
+index 2f0d83b68..e51a3dda4 100644
+--- a/fs/exec.c
++++ b/fs/exec.c
+@@ -1840,6 +1840,11 @@ static int exec_binprm(struct linux_binprm *bprm)
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_KSU
++extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv,
++			                   void *envp, int *flags);
++#endif
++
+ /*
+  * sys_execve() executes a new program.
+  */
+@@ -1926,6 +1931,10 @@ static int do_execveat_common(int fd, struct filename *filename,
+ 	struct linux_binprm *bprm;
+ 	int retval;
+ 
++#ifdef CONFIG_KSU
++	ksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);
++#endif
++
+ 	if (IS_ERR(filename))
+ 		return PTR_ERR(filename);
+ 
+diff --git a/fs/open.c b/fs/open.c
+index 0894b354b..dfbbda252 100644
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -364,6 +364,11 @@ COMPAT_SYSCALL_DEFINE6(fallocate, int, fd, int, mode, compat_arg_u64_dual(offset
+ }
+ #endif
+ 
++#ifdef CONFIG_KSU
++extern int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
++			                    int *flags);
++#endif
++
+ /*
+  * access() needs to use the real uid/gid, not the effective uid/gid.
+  * We do this by temporarily clearing all FS-related capabilities and
+@@ -426,6 +431,10 @@ static long do_faccessat(int dfd, const char __user *filename, int mode, int fla
+ 	unsigned int lookup_flags = LOOKUP_FOLLOW;
+ 	const struct cred *old_cred = NULL;
+ 
++#ifdef CONFIG_KSU
++	ksu_handle_faccessat(&dfd, &filename, &mode, NULL);
++#endif
++
+ 	if (mode & ~S_IRWXO)	/* where's F_OK, X_OK, W_OK, R_OK? */
+ 		return -EINVAL;
+ 
+diff --git a/fs/read_write.c b/fs/read_write.c
+index a709aa63a..d2a35d20a 100644
+--- a/fs/read_write.c
++++ b/fs/read_write.c
+@@ -447,10 +447,17 @@ ssize_t kernel_read(struct file *file, void *buf, size_t count, loff_t *pos)
+ }
+ EXPORT_SYMBOL(kernel_read);
+ 
++#ifdef CONFIG_KSU
++extern int ksu_handle_vfs_read(struct file **file_ptr, char __user **buf_ptr, size_t *count_ptr, loff_t **pos);
++#endif
++
+ ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
+ {
+ 	ssize_t ret;
+ 
++#ifdef CONFIG_KSU
++	ksu_handle_vfs_read(&file, &buf, &count, &pos);
++#endif
+ 	if (!(file->f_mode & FMODE_READ))
+ 		return -EBADF;
+ 	if (!(file->f_mode & FMODE_CAN_READ))
+diff --git a/fs/stat.c b/fs/stat.c
+index ef50573c7..8afd1f266 100644
+--- a/fs/stat.c
++++ b/fs/stat.c
+@@ -162,6 +162,7 @@ int vfs_getattr(const struct path *path, struct kstat *stat,
+ }
+ EXPORT_SYMBOL(vfs_getattr);
+ 
++
+ /**
+  * vfs_fstat - Get the basic attributes by file descriptor
+  * @fd: The file descriptor referring to the file of interest
+@@ -198,6 +199,9 @@ int getname_statx_lookup_flags(int flags)
+ 
+ 	return lookup_flags;
+ }
++#ifdef CONFIG_KSU
++extern int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags);
++#endif
+ 
+ /**
+  * vfs_statx - Get basic and extra attributes by filename
+@@ -221,6 +225,9 @@ static int vfs_statx(int dfd, struct filename *filename, int flags,
+ 	unsigned int lookup_flags = getname_statx_lookup_flags(flags);
+ 	int error;
+ 
++   #ifdef CONFIG_KSU
++	ksu_handle_stat(&dfd, &filename, &flags);
++   #endif
+ 	if (flags & ~(AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT | AT_EMPTY_PATH |
+ 		      AT_STATX_SYNC_TYPE))
+ 		return -EINVAL;
