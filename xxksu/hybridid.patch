@@ -1,5 +1,5 @@
---- a/fs/exec.c
-+++ b/fs/exec.c
+--- ./fs/exec.c
++++ ./fs/exec.c
 @@ -1886,12 +1886,26 @@ static int do_execveat_common(int fd, struct filename *filename,
  	return retval;
  }
@@ -32,8 +32,8 @@
  	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
  }
  
---- a/fs/stat.c
-+++ b/fs/stat.c
+--- ./fs/stat.c
++++ ./fs/stat.c
 @@ -353,6 +353,10 @@ SYSCALL_DEFINE2(newlstat, const char __user *, filename,
  	return cp_new_stat(&stat, statbuf);
  }
@@ -69,8 +69,8 @@
  		return error;
  		
 
---- a/fs/open.c
-+++ b/fs/open.c
+--- ./fs/open.c
++++ ./fs/open.c
 @@ -450,8 +450,16 @@ long do_faccessat(int dfd, const char __user *filename, int mode)
  	return res;
  }
@@ -89,8 +89,8 @@
  	return do_faccessat(dfd, filename, mode);
  }
  
---- a/fs/namei.c
-+++ b/fs/namei.c
+--- ./fs/namei.c
++++ ./fs/namei.c
 @@ -130,6 +130,10 @@
  
  #define EMBEDDED_NAME_MAX	(PATH_MAX - offsetof(struct filename, iname))
