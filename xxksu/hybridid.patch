@@ -32,7 +32,7 @@
  	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
  }
  
- --- a/fs/stat.c
+--- a/fs/stat.c
 +++ b/fs/stat.c
 @@ -353,6 +353,10 @@ SYSCALL_DEFINE2(newlstat, const char __user *, filename,
  	return cp_new_stat(&stat, statbuf);
@@ -89,7 +89,7 @@
  	return do_faccessat(dfd, filename, mode);
  }
  
- --- a/fs/namei.c
+--- a/fs/namei.c
 +++ b/fs/namei.c
 @@ -130,6 +130,10 @@
  
