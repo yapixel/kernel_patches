@@ -1,8 +1,6 @@
 --- kernel/apk_sign.c
 +++ kernel/apk_sign.c
-@@ -316,15 +316,21 @@ module_param_cb(ksu_debug_manager_uid, &expected_size_ops,
- 		&ksu_debug_manager_uid, S_IRUSR | S_IWUSR);
- #endif
+@@ -335,19 +335,25 @@ module_param_cb(ksu_debug_manager_uid, &expected_size_ops,
  
  bool is_manager_apk(char *path)
  {
@@ -80,51 +78,6 @@
  	return userspace_stack_buffer(ksud_path, sizeof(ksud_path));
  }
  
-+// every little bit helps here
-+__attribute__((hot, no_stack_protector))
-+static __always_inline bool is_su_allowed(const void *ptr_to_check)
-+{
-+	barrier();
-+
-+	if (likely(!ksu_is_allow_uid(current_uid().val)))
-+		return false;
-+
-+	if (unlikely(!ptr_to_check))
-+		return false;
-+
-+	return true;
-+}
-+
-+static int ksu_sucompat_user_common(const char __user **filename_user,
-+				const char *syscall_name,
-+				const bool escalate)
-+{
-+	char path[sizeof(su) + 1];
-+#ifdef CONFIG_KSU_SUSFS_SUS_SU
-+	char path[sizeof(su) + 1] = {0};
-+#else
-+	memset(path, 0, sizeof(path));
-+#endif
-+	if (ksu_copy_from_user_retry(path, *filename_user, sizeof(path)))
-+		return 0;
-+
-+	path[sizeof(path) - 1] = '\0';
-+
-+	if (memcmp(path, su, sizeof(su)))
-+		return 0;
-+
-+	if (escalate) {
-+		pr_info("%s su found\n", syscall_name);
-+		*filename_user = ksud_user_path();
-+		escape_to_root(); // escalate !!
-+	} else {
-+		pr_info("%s su->sh!\n", syscall_name);
-+		*filename_user = sh_user_path();
-+	}
-+
-+	return 0;
-+}
-+
  int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
  			 int *__unused_flags)
  {
@@ -135,23 +88,20 @@
  		return 0;
  	}
 +#endif
-+
+ 
 +#ifdef CONFIG_KSU_SUSFS_SUS_SU
 +	char path[sizeof(su) + 1] = {0};
 +#else
-+	char path[sizeof(su) + 1];
-+	memset(path, 0, sizeof(path));
+ 	char path[sizeof(su) + 1];
+ 	memset(path, 0, sizeof(path));
 +#endif
-+	ksu_strncpy_from_user_nofault(path, *filename_user, sizeof(path));
-+
-+	if (unlikely(!memcmp(path, su, sizeof(su)))) {
-+		*filename_user = sh_user_path();
-+		pr_info("faccessat su->sh!\n");
-+	}
-+
-+	return 0;
-+}
-+
+ 	ksu_strncpy_from_user_nofault(path, *filename_user, sizeof(path));
+ 
+ 	if (unlikely(!memcmp(path, su, sizeof(su)))) {
+@@ -73,21 +109,43 @@ int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
+ 	return 0;
+ }
+ 
 +#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0) && defined(CONFIG_KSU_SUSFS_SUS_SU)
 +struct filename* susfs_ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags) {
 +	struct filename *name = getname_flags(*filename_user, getname_statx_lookup_flags(*flags), NULL);
@@ -170,46 +120,27 @@
 +}
 +#endif
 +
-+int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
-+{
+ int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
+ {
+-	// const char sh[] = SH_PATH;
+-	const char su[] = SU_PATH;
+-
 +#ifndef CONFIG_KSU_SUSFS_SUS_SU
-+	if (!ksu_is_allow_uid(current_uid().val)) {
-+		return 0;
-+	}
+ 	if (!ksu_is_allow_uid(current_uid().val)) {
+ 		return 0;
+ 	}
 +#endif
-+
-+	if (unlikely(!filename_user)) {
-+		return 0;
-+	}
-+
+ 
+ 	if (unlikely(!filename_user)) {
+ 		return 0;
+ 	}
+ 
 +#ifdef CONFIG_KSU_SUSFS_SUS_SU
 +	char path[sizeof(su) + 1] = {0};
 +#else
  	char path[sizeof(su) + 1];
  	memset(path, 0, sizeof(path));
 +#endif
- 	ksu_strncpy_from_user_nofault(path, *filename_user, sizeof(path));
- 
- 	if (unlikely(!memcmp(path, su, sizeof(su)))) {
-@@ -73,21 +109,6 @@ int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
- 	return 0;
- }
- 
--int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
--{
--	// const char sh[] = SH_PATH;
--	const char su[] = SU_PATH;
--
--	if (!ksu_is_allow_uid(current_uid().val)) {
--		return 0;
--	}
--
--	if (unlikely(!filename_user)) {
--		return 0;
--	}
--
--	char path[sizeof(su) + 1];
--	memset(path, 0, sizeof(path));
  // Remove this later!! we use syscall hook, so this will never happen!!!!!
  #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0) && 0
  	// it becomes a `struct filename *` after 5.18
@@ -258,3 +189,4 @@
  	ksu_strncpy_from_user_nofault(path, *filename_user, sizeof(path));
  
  	if (likely(memcmp(path, su, sizeof(su))))
+ }
