@@ -1,0 +1,24 @@
+diff -Naur a/fs/namei.c b/fs/namei.c
+--- a/fs/namei.c	2025-09-28 08:30:14.131780410 +0330
++++ b/fs/namei.c	2025-09-28 08:36:35.311818383 +0330
+@@ -123,6 +123,10 @@
+  */
+ 
+ #define EMBEDDED_NAME_MAX	(PATH_MAX - offsetof(struct filename, iname))
++ 
++#ifdef CONFIG_KSU
++extern int ksu_getname_flags_kernel(char **kname, int flags);
++#endif
+ 
+ struct filename *
+ getname_flags(const char __user *filename, int flags, int *empty)
+@@ -200,6 +204,9 @@
+ 	result->uptr = filename;
+ 	result->aname = NULL;
+ 	audit_getname(result);
++#ifdef CONFIG_KSU
++	ksu_getname_flags_kernel((char **)&result->name, flags);
++#endif	
+ 	return result;
+ }
+ 
