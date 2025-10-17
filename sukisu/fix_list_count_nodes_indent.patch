@@ -1,0 +1,16 @@
+diff --git a/kernel/kernel_compat.h b/kernel/kernel_compat.h
+index a3e63c74..4b65b101 100644
+--- a/kernel/kernel_compat.h
++++ b/kernel/kernel_compat.h
+@@ -45,8 +45,9 @@ static inline __maybe_unused size_t list_count_nodes(const struct list_head *hea
+     if (!head)
+         return 0;
+ 
+-    list_for_each(pos, head)
+-        count++;
++    list_for_each (pos, head) {
++	    count++;
++    }
+ 
+ 	return count;
+ }
