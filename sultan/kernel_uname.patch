@@ -1,0 +1,36 @@
+diff --git a/arch/arm64/configs/zuma_defconfig b/arch/arm64/configs/zuma_defconfig
+index f8fd4399f..c5c57fc4d 100644
+--- a/arch/arm64/configs/zuma_defconfig
++++ b/arch/arm64/configs/zuma_defconfig
+@@ -1,5 +1,4 @@
+-CONFIG_LOCALVERSION="-Sultan"
+-# CONFIG_LOCALVERSION_AUTO is not set
++CONFIG_LOCALVERSION_AUTO=y
+ CONFIG_IRQ_SBALANCE=y
+ CONFIG_SBALANCE_EXCLUDE_CPUS="3,7,8"
+ CONFIG_NO_HZ=y
+diff --git a/init/Makefile b/init/Makefile
+index 8316c23be..8c6b8930e 100644
+--- a/init/Makefile
++++ b/init/Makefile
+@@ -29,7 +29,8 @@ preempt-flag-$(CONFIG_PREEMPT_DYNAMIC)	:= PREEMPT_DYNAMIC
+ preempt-flag-$(CONFIG_PREEMPT_RT)	:= PREEMPT_RT
+ 
+ build-version = $(or $(KBUILD_BUILD_VERSION), $(build-version-auto))
+-build-timestamp = $(or $(KBUILD_BUILD_TIMESTAMP), $(build-timestamp-auto))
++#build-timestamp = $(or $(KBUILD_BUILD_TIMESTAMP), $(build-timestamp-auto))
++build-timestamp = "Tue Jul  8 09:17:32 UTC 2025"
+ 
+ # Maximum length of UTS_VERSION is 64 chars
+ filechk_uts_version = \
+diff --git a/scripts/setlocalversion b/scripts/setlocalversion
+index 1b733ae4c..2863462a8 100755
+--- a/scripts/setlocalversion
++++ b/scripts/setlocalversion
+@@ -170,4 +170,5 @@ if test -n "${BUILD_NUMBER}"; then
+ 	res="$res-ab${BUILD_NUMBER}"
+ fi
+ 
+-echo "$res"
++#echo "$res"
++echo "-android14-11-g66e758f7d0c0-ab13748739"
