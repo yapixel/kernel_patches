@@ -1,83 +1,45 @@
---- a/drivers/kernelsu/ksud.c
-+++ b/drivers/kernelsu/ksud.c
-@@ -30,6 +30,12 @@
- #include <linux/uaccess.h>
- #include <linux/miscdevice.h>
+From 8f1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s Mon Sep 17 00:00:00 2001
+From: YourName <you@example.com>
+Date: Thu, 30 Oct 2025 12:00:00 +0800
+Subject: [PATCH] Add minimal manual hook stubs for min_scope_syscall_hooks
+
+This patch adds only the two symbols required by
+min_scope_syscall_hooks_v1.5.patch when CONFIG_KSU_KPROBES_HOOK=n.
+
+No changes to sucompat.c — faccessat is NOT used in manual mode.
+
+Signed-off-by: YourName <you@example.com>
+---
+ kernel/ksud.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/kernel/ksud.c b/kernel/ksud.c
+index b96c5ff9..3a2b1c4d 100644
+--- a/kernel/ksud.c
++++ b/kernel/ksud.c
+@@ -57,6 +57,18 @@ bool ksu_input_hook __read_mostly = true;
+ #endif
+ bool ksu_execveat_hook __read_mostly = true;
  
-+/* Manual syscall hook interface (required when CONFIG_KSU_KPROBES_HOOK=n) */
-+#if defined(CONFIG_KSU) && !defined(CONFIG_KSU_KPROBES_HOOK)
-+bool ksu_input_hook __read_mostly;
-+bool ksu_vfs_read_hook __read_mostly;
-+#endif
++// === Minimal Manual Syscall Hook Stubs ===
++// Only needed when CONFIG_KSU_KPROBES_HOOK=n
++// Required by min_scope_syscall_hooks_v1.5.patch
 +
- /*
-  * KernelSU user-space daemon communication
-  */
-@@ -580,6 +586,82 @@ static int __init ksud_init(void)
- 	return 0;
- 
- fail:
-+#if defined(CONFIG_KSU) && !defined(CONFIG_KSU_KPROBES_HOOK)
-+	ksu_input_hook = false;
-+	ksu_vfs_read_hook = false;
-+#endif
- 	return ret;
- }
- 
-+/* ============================================================= */
-+/* Manual syscall hook handlers (called from syscall wrappers)   */
-+/* ============================================================= */
-+
-+#if defined(CONFIG_KSU) && !defined(CONFIG_KSU_KPROBES_HOOK)
-+
-+int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code, int *value)
++int ksu_handle_sys_read(unsigned int fd, char __user *buf, size_t count)
 +{
-+	/* Add input event hiding here if needed */
 +	return 0;
 +}
-+EXPORT_SYMBOL_GPL(ksu_handle_input_handle_event);
++EXPORT_SYMBOL(ksu_handle_sys_read);
 +
-+int ksu_handle_execve_sucompat(int *fd, const char __user **filename_user,
-+			       void *__unused_argv, void *__unused_envp,
-+			       int *__unused_flags)
++int ksu_handle_input_handle_event(struct input_handle *handle,
++				  unsigned int type, unsigned int code, int value)
 +{
-+	/* Intercept su-path execve (e.g. /system/bin/su, /data/adb/ksu/bin/su) */
 +	return 0;
 +}
-+EXPORT_SYMBOL_GPL(ksu_handle_execve_sucompat);
++EXPORT_SYMBOL(ksu_handle_input_handle_event);
 +
-+int ksu_handle_faccessat(int *dfd, const char __user **filename_user,
-+			 int *mode, int *flags)
-+{
-+	/* Hide access to /data/adb/ksu/* */
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(ksu_handle_faccessat);
-+
-+int ksu_handle_sys_read(unsigned int fd, char __user **buf_ptr, size_t *count_ptr)
-+{
-+	/* Hide reads of /proc/<pid>/mountinfo that show susfs */
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(ksu_handle_sys_read);
-+
-+int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
-+{
-+	/* Hide stat() of susfs paths */
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(ksu_handle_stat);
-+
-+#endif /* CONFIG_KSU && !CONFIG_KSU_KPROBES_HOOK */
-+
- static void __exit ksud_exit(void)
- {
- 	pr_info("KernelSU: module exit\n");
+ u32 ksu_devpts_sid;
  
--	unregister_kprobe(&execve_kp);
--
- 	misc_deregister(&ksud_misc);
- }
- 
- module_init(ksud_init);
- module_exit(ksud_exit);
+ void on_post_fs_data(void)
+-- 
+2.51.1.dirty
