@@ -1,21 +1,14 @@
-From 8f1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s Mon Sep 17 00:00:00 2001
-From: YourName <you@example.com>
-Date: Thu, 30 Oct 2025 12:00:00 +0800
-Subject: [PATCH] Add minimal manual hook stubs for min_scope_syscall_hooks
+commit d91910a40119e75c52e213ca1d661ebdeab371c0
+Author: debiansid <debiansid@gmail.com>
+Date:   Thu Oct 30 15:22:57 2025 +0800
 
-This patch adds only the two symbols required by
-min_scope_syscall_hooks_v1.5.patch when CONFIG_KSU_KPROBES_HOOK=n.
-
-Signed-off-by: YourName <you@example.com>
----
- kernel/ksud.c | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
+    [PATCH] Add minimal manual hook stubs for min_scope_syscall_hooks
 
 diff --git a/kernel/ksud.c b/kernel/ksud.c
-index b96c5ff9..3a2b1c4d 100644
+index b96c5ff9..074e9df7 100644
 --- a/kernel/ksud.c
 +++ b/kernel/ksud.c
-@@ -57,6 +57,19 @@ bool ksu_input_hook __read_mostly = true;
+@@ -57,6 +57,22 @@ bool ksu_input_hook __read_mostly = true;
  #endif
  bool ksu_execveat_hook __read_mostly = true;
  
@@ -38,5 +31,3 @@ index b96c5ff9..3a2b1c4d 100644
  u32 ksu_devpts_sid;
  
  void on_post_fs_data(void)
--- 
-2.51.1
