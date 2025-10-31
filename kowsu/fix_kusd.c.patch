@@ -1,5 +1,5 @@
---- a/drivers/kernelsu/ksud.c
-+++ b/drivers/kernelsu/ksud.c
+--- a/kernel/ksud.c
++++ b/kernel/ksud.c
 @@ -616,7 +616,9 @@ void ksu_ksud_init()
  void ksu_ksud_exit()
  {
@@ -9,4 +9,5 @@
 +#endif
  	// this should be done before unregister vfs_read_kp
  	// unregister_kprobe(&vfs_read_kp);
+
  	unregister_kprobe(&input_event_kp);
