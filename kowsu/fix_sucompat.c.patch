@@ -1,0 +1,601 @@
+commit f5213cf83f01e74ae3d4822f5e5c209946ab0455
+Author: debiansid <debiansid@gmail.com>
+Date:   Fri Oct 31 14:25:29 2025 +0800
+
+    fix sucompat.c
+
+diff --git a/kernel/sucompat.c b/kernel/sucompat.c
+index cb42dd39..53d5b510 100644
+--- a/kernel/sucompat.c
++++ b/kernel/sucompat.c
+@@ -1,335 +1,254 @@
+-#include <linux/dcache.h>
+-#include <linux/security.h>
+-#include <asm/current.h>
+-#include <linux/cred.h>
+-#include <linux/err.h>
+-#include <linux/fs.h>
+-#include <linux/kprobes.h>
+-#include <linux/types.h>
+-#include <linux/uaccess.h>
+-#include <linux/version.h>
+-#include <linux/sched/task_stack.h>
+-
+-#include "objsec.h"
+-#include "allowlist.h"
+-#include "arch.h"
+-#include "klog.h" // IWYU pragma: keep
+-#include "ksud.h"
+-#include "kernel_compat.h"
+-
+-#define SU_PATH "/system/bin/su"
+-#define SH_PATH "/system/bin/sh"
+-
+-extern void escape_to_root();
+-
+-static void __user *userspace_stack_buffer(const void *d, size_t len)
+-{
+-	/* To avoid having to mmap a page in userspace, just write below the stack
+-   * pointer. */
+-	char __user *p = (void __user *)current_user_stack_pointer() - len;
+-
+-	return copy_to_user(p, d, len) ? NULL : p;
+-}
+-
+-static char __user *sh_user_path(void)
+-{
+-	static const char sh_path[] = "/system/bin/sh";
+-
+-	return userspace_stack_buffer(sh_path, sizeof(sh_path));
+-}
+-
+-static char __user *ksud_user_path(void)
+-{
+-	static const char ksud_path[] = KSUD_PATH;
+-
+-	return userspace_stack_buffer(ksud_path, sizeof(ksud_path));
+-}
+-
+-// every little bit helps here
+-__attribute__((hot, no_stack_protector))
+-static __always_inline bool is_su_allowed(const void *ptr_to_check)
+-{
+-	DONT_GET_SMART();
+-
+-	if (likely(!ksu_is_allow_uid(current_uid().val)))
+-		return false;
+-
+-	if (unlikely(!ptr_to_check))
+-		return false;
+-
+-	return true;
+-}
+-
+-static int ksu_sucompat_user_common(const char __user **filename_user,
+-				const char *syscall_name,
+-				const bool escalate)
+-{
+-	const char su[] = SU_PATH;
+-
+-	char path[sizeof(su)]; // sizeof includes nullterm already!
+-	if (ksu_copy_from_user_retry(path, *filename_user, sizeof(path)))
+-		return 0;
+-
+-	path[sizeof(path) - 1] = '\0';
+-
+-	if (memcmp(path, su, sizeof(su)))
+-		return 0;
+-
+-	if (escalate) {
+-		pr_info("%s su found\n", syscall_name);
+-		*filename_user = ksud_user_path();
+-		escape_to_root(); // escalate !!
+-	} else {
+-		pr_info("%s su->sh!\n", syscall_name);
+-		*filename_user = sh_user_path();
+-	}
+-
+-	return 0;
+-}
+-
+-// sys_faccessat
+-int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
+-			 int *__unused_flags)
+-{
+-	if (!is_su_allowed((const void *)filename_user))
+-		return 0;
+-
+-	return ksu_sucompat_user_common(filename_user, "faccessat", false);
+-}
+-
+-// sys_newfstatat, sys_fstat64
+-int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
+-{
+-	if (!is_su_allowed((const void *)filename_user))
+-		return 0;
+-
+-	return ksu_sucompat_user_common(filename_user, "newfstatat", false);
+-}
+-
+-// sys_execve, compat_sys_execve
+-int ksu_handle_execve_sucompat(int *fd, const char __user **filename_user,
+-			       void *__never_use_argv, void *__never_use_envp,
+-			       int *__never_use_flags)
+-{
+-	if (!is_su_allowed((const void *)filename_user))
+-		return 0;
+-
+-	return ksu_sucompat_user_common(filename_user, "sys_execve", true);
+-}
+-
+-// getname_flags on fs/namei.c, this hooks ALL fs-related syscalls.
+-// NOT RECOMMENDED for daily use. mostly for debugging purposes.
+-int ksu_getname_flags_user(const char __user **filename_user, int flags)
+-{
+-	if (!is_su_allowed((const void *)filename_user))
+-		return 0;
+-
+-	// sys_execve always calls getname, which sets flags = 0 on getname_flags
+-	// we can use it to deduce if caller is likely execve
+-	return ksu_sucompat_user_common(filename_user, "getname_flags", !!!flags);
+-}
+-
+-static int ksu_sucompat_kernel_common(void *filename_ptr, const char *function_name, bool escalate)
+-{
+-
+-	if (likely(memcmp(filename_ptr, SU_PATH, sizeof(SU_PATH))))
+-		return 0;
+-
+-	if (escalate) {
+-		pr_info("%s su found\n", function_name);
+-		memcpy(filename_ptr, KSUD_PATH, sizeof(KSUD_PATH));
+-		escape_to_root();
+-	} else {
+-		pr_info("%s su->sh\n", function_name);
+-		memcpy(filename_ptr, SH_PATH, sizeof(SH_PATH));
+-	}
+-	return 0;
+-}
+-
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
+-// for do_execveat_common / do_execve_common on >= 3.14
+-// take note: struct filename **filename
+-int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
+-				 void *__never_use_argv, void *__never_use_envp,
+-				 int *__never_use_flags)
+-{
+-	if (!is_su_allowed((const void *)filename_ptr))
+-		return 0;
+-
+-	// struct filename *filename = *filename_ptr;
+-	// return ksu_do_execveat_common((void *)filename->name, "do_execveat_common");
+-	// nvm this, just inline
+-
+-	return ksu_sucompat_kernel_common((void *)(*filename_ptr)->name, "do_execveat_common", true);
+-}
+-#else
+-// for do_execve_common on < 3.14
+-// take note: char **filename
+-int ksu_legacy_execve_sucompat(const char **filename_ptr,
+-				 void *__never_use_argv,
+-				 void *__never_use_envp)
+-{
+-	if (!is_su_allowed((const void *)filename_ptr))
+-		return 0;
+-
+-	return ksu_sucompat_kernel_common((void *)*filename_ptr, "do_execve_common", true);
+-}
+-#endif
+-
+-// getname_flags on fs/namei.c, this hooks ALL fs-related syscalls.
+-// put the hook right after usercopy
+-// NOT RECOMMENDED for daily use. mostly for debugging purposes.
+-int ksu_getname_flags_kernel(char **kname, int flags)
+-{
+-	if (!is_su_allowed((const void *)kname))
+-		return 0;
+-
+-	return ksu_sucompat_kernel_common((void *)*kname, "getname_flags", !!!flags);
+-}
+-
+-#ifdef CONFIG_KPROBES
+-#if 0
+-static int faccessat_handler_pre(struct kprobe *p, struct pt_regs *regs)
+-{
+-	struct pt_regs *real_regs = PT_REAL_REGS(regs);
+-	int *dfd = (int *)&PT_REGS_PARM1(real_regs);
+-	const char __user **filename_user =
+-		(const char **)&PT_REGS_PARM2(real_regs);
+-	int *mode = (int *)&PT_REGS_PARM3(real_regs);
+-
+-	return ksu_handle_faccessat(dfd, filename_user, mode, NULL);
+-}
+-
+-static int newfstatat_handler_pre(struct kprobe *p, struct pt_regs *regs)
+-{
+-	struct pt_regs *real_regs = PT_REAL_REGS(regs);
+-	int *dfd = (int *)&PT_REGS_PARM1(real_regs);
+-	const char __user **filename_user =
+-		(const char **)&PT_REGS_PARM2(real_regs);
+-	int *flags = (int *)&PT_REGS_SYSCALL_PARM4(real_regs);
+-
+-	return ksu_handle_stat(dfd, filename_user, flags);
+-}
+-
+-static int execve_handler_pre(struct kprobe *p, struct pt_regs *regs)
+-{
+-	struct pt_regs *real_regs = PT_REAL_REGS(regs);
+-	const char __user **filename_user =
+-		(const char **)&PT_REGS_PARM1(real_regs);
+-
+-	return ksu_handle_execve_sucompat(AT_FDCWD, filename_user, NULL, NULL,
+-					  NULL);
+-}
+-#endif
+-
+-static __maybe_unused struct kprobe *init_kprobe(const char *name,
+-				  kprobe_pre_handler_t handler)
+-{
+-	struct kprobe *kp = kzalloc(sizeof(struct kprobe), GFP_KERNEL);
+-	if (!kp)
+-		return NULL;
+-	kp->symbol_name = name;
+-	kp->pre_handler = handler;
+-
+-	int ret = register_kprobe(kp);
+-	pr_info("sucompat: register_%s kprobe: %d\n", name, ret);
+-	if (ret) {
+-		kfree(kp);
+-		return NULL;
+-	}
+-
+-	return kp;
+-}
+-
+-static __maybe_unused void destroy_kprobe(struct kprobe **kp_ptr)
+-{
+-	struct kprobe *kp = *kp_ptr;
+-	if (!kp)
+-		return;
+-	unregister_kprobe(kp);
+-	synchronize_rcu();
+-	kfree(kp);
+-	*kp_ptr = NULL;
+-}
+-
+-static DEFINE_MUTEX(ksu_rp_sucompat_lock);
+-static struct kretprobe *getname_rp;
+-
+-static int getname_flags_ret_handler(struct kretprobe_instance *ri, struct pt_regs *regs)
+-{
+-	int *flags = (int *)ri->data;
+-
+-	struct filename *ret = (struct filename *)PT_REGS_RC(regs);
+-	if (IS_ERR(ret) || !ret || !ret->name)
+-		return 0;
+-
+-	ksu_getname_flags_kernel((char **)&ret->name, *flags);
+-	return 0;
+-}
+-
+-static int getname_flags_entry_handler(struct kretprobe_instance *ri, struct pt_regs *regs)
+-{
+-	int *flags = (int *)ri->data; // as per sample, we store everything on ri->data ?
+-	*flags = (int)PT_REGS_PARM2(regs); // keep a copy of arg2
+-
+-	return 0;
+-}
+-
+-static struct kretprobe *init_kretprobe(const char *symbol,
+-					kretprobe_handler_t entry_handler,
+-					kretprobe_handler_t ret_handler,
+-					size_t data_size,
+-					int maxactive)
+-{
+-	struct kretprobe *rp = kzalloc(sizeof(struct kretprobe), GFP_KERNEL);
+-	if (!rp)
+-		return NULL;
+-
+-	rp->kp.symbol_name = symbol;
+-	rp->entry_handler = entry_handler;
+-	rp->handler = ret_handler;
+-	rp->data_size = data_size;
+-	rp->maxactive = maxactive;
+-
+-	mutex_lock(&ksu_rp_sucompat_lock);
+-	int ret = register_kretprobe(rp);
+-	mutex_unlock(&ksu_rp_sucompat_lock);
+-	if (ret) {
+-		kfree(rp);
+-		return NULL;
+-	}
+-	pr_info("rp_sucompat: planted kretprobe at %s: %p\n", rp->kp.symbol_name, rp->kp.addr);
+-
+-	return rp;
+-}
+-
+-static void destroy_kretprobe(struct kretprobe **rp_ptr)
+-{
+-	if (!rp_ptr || !*rp_ptr)
+-		return;
+-
+-	mutex_lock(&ksu_rp_sucompat_lock);
+-	unregister_kretprobe(*rp_ptr);
+-	mutex_unlock(&ksu_rp_sucompat_lock);
+-	kfree(*rp_ptr);
+-	*rp_ptr = NULL;
+-}
+-#endif
+-
+-// sucompat: permited process can execute 'su' to gain root access.
+-void ksu_sucompat_init()
+-{
+-#ifdef CONFIG_KPROBES
+-	pr_info("%s: register getname_flags!\n", __func__);
+-	getname_rp = init_kretprobe("getname_flags", getname_flags_entry_handler,
+-			getname_flags_ret_handler, sizeof(int), 20);
+-#endif
+-}
+-
+-void ksu_sucompat_exit()
+-{
+-#ifdef CONFIG_KPROBES
+-	pr_info("rp_sucompat: unregister getname_flags!\n");
+-	destroy_kretprobe(&getname_rp);
+-#endif
+-}
++#include <linux/dcache.h>
++#include <linux/security.h>
++#include <asm/current.h>
++#include <linux/cred.h>
++#include <linux/err.h>
++#include <linux/fs.h>
++#include <linux/kprobes.h>
++#include <linux/types.h>
++#include <linux/uaccess.h>
++#include <linux/version.h>
++#include <linux/sched/task_stack.h>
++
++#include "objsec.h"
++#include "allowlist.h"
++#include "arch.h"
++#include "klog.h" // IWYU pragma: keep
++#include "ksud.h"
++#include "kernel_compat.h"
++
++#define SU_PATH "/system/bin/su"
++#define SH_PATH "/system/bin/sh"
++
++extern void escape_to_root();
++
++/* --------------------------------------------------------------------- */
++/*                     User-space path helpers                           */
++/* --------------------------------------------------------------------- */
++
++static void __user *userspace_stack_buffer(const void *d, size_t len)
++{
++  /* Write below the stack pointer to avoid mmap */
++  char __user *p = (void __user *)current_user_stack_pointer() - len;
++
++  return copy_to_user(p, d, len) ? NULL : p;
++}
++
++static char __user *sh_user_path(void)
++{
++  static const char sh_path[] = "/system/bin/sh";
++  return userspace_stack_buffer(sh_path, sizeof(sh_path));
++}
++
++static char __user *ksud_user_path(void)
++{
++  static const char ksud_path[] = KSUD_PATH;
++  return userspace_stack_buffer(ksud_path, sizeof(ksud_path));
++}
++
++/* --------------------------------------------------------------------- */
++/*                     Common logic                                      */
++/* --------------------------------------------------------------------- */
++
++__attribute__((hot, no_stack_protector))
++static __always_inline bool is_su_allowed(const void *ptr_to_check)
++{
++  if (likely(!ksu_is_allow_uid(current_uid().val)))
++    return false;
++
++  if (unlikely(!ptr_to_check))
++    return false;
++
++  return true;
++}
++
++/* User-space path version */
++static int ksu_sucompat_user_common(const char __user **filename_user,
++            const char *syscall_name,
++            const bool escalate)
++{
++  const char su[] = SU_PATH;
++  char path[sizeof(su)];  // includes null terminator
++
++  if (ksu_copy_from_user_retry(path, *filename_user, sizeof(path)))
++    return 0;
++
++  path[sizeof(path) - 1] = '\0';
++
++  if (memcmp(path, su, sizeof(su)))
++    return 0;
++
++  if (escalate) {
++    pr_info("%s su found\n", syscall_name);
++    *filename_user = ksud_user_path();
++    escape_to_root();
++  } else {
++    pr_info("%s su->sh!\n", syscall_name);
++    *filename_user = sh_user_path();
++  }
++
++  return 0;
++}
++
++/* Kernel-space path version (for execveat, getname_flags, etc.) */
++static int ksu_sucompat_kernel_common(void *filename_ptr,
++              const char *function_name,
++              bool escalate)
++{
++  if (likely(memcmp(filename_ptr, SU_PATH, sizeof(SU_PATH))))
++    return 0;
++
++  if (escalate) {
++    pr_info("%s su found\n", function_name);
++    memcpy(filename_ptr, KSUD_PATH, sizeof(KSUD_PATH));
++    escape_to_root();
++  } else {
++    pr_info("%s su->sh\n", function_name);
++    memcpy(filename_ptr, SH_PATH, sizeof(SH_PATH));
++  }
++  return 0;
++}
++
++/* --------------------------------------------------------------------- */
++/*                     Syscall handlers                                  */
++/* --------------------------------------------------------------------- */
++
++/* sys_faccessat */
++int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
++       int *__unused_flags)
++{
++  if (!is_su_allowed((const void *)filename_user))
++    return 0;
++
++  return ksu_sucompat_user_common(filename_user, "faccessat", false);
++}
++
++/* sys_newfstatat, sys_fstat64 */
++int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
++{
++  if (!is_su_allowed((const void *)filename_user))
++    return 0;
++
++  return ksu_sucompat_user_common(filename_user, "newfstatat", false);
++}
++
++/* sys_execve, compat_sys_execve */
++int ksu_handle_execve_sucompat(int *fd, const char __user **filename_user,
++             void *__never_use_argv, void *__never_use_envp,
++             int *__never_use_flags)
++{
++  if (!is_su_allowed((const void *)filename_user))
++    return 0;
++
++  return ksu_sucompat_user_common(filename_user, "sys_execve", true);
++}
++
++/* do_execveat_common (>= 3.14) – struct filename ** */
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
++int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
++         void *__never_use_argv, void *__never_use_envp,
++         int *__never_use_flags)
++{
++  if (!is_su_allowed((const void *)filename_ptr))
++    return 0;
++
++  return ksu_sucompat_kernel_common((void *)(*filename_ptr)->name,
++            "do_execveat_common", true);
++}
++#else
++/* do_execve_common (< 3.14) – char ** */
++int ksu_legacy_execve_sucompat(const char **filename_ptr,
++             void *__never_use_argv,
++             void *__never_use_envp)
++{
++  if (!is_su_allowed((const void *)filename_ptr))
++    return 0;
++
++  return ksu_sucompat_kernel_common((void *)*filename_ptr,
++            "do_execve_common", true);
++}
++#endif
++
++/* getname_flags – kernel version (after usercopy) */
++int ksu_getname_flags_kernel(char **kname, int flags)
++{
++  if (!is_su_allowed((const void *)kname))
++    return 0;
++
++  return ksu_sucompat_kernel_common((void *)*kname, "getname_flags", !!!flags);
++}
++
++/* --------------------------------------------------------------------- */
++/*                           Kprobe handlers                             */
++/* --------------------------------------------------------------------- */
++
++#ifdef CONFIG_KPROBES
++
++static int faccessat_handler_pre(struct kprobe *p, struct pt_regs *regs)
++{
++  struct pt_regs *real_regs = PT_REAL_REGS(regs);
++  int *dfd = (int *)&PT_REGS_PARM1(real_regs);
++  const char __user **filename_user = (const char **)&PT_REGS_PARM2(real_regs);
++  int *mode = (int *)&PT_REGS_PARM3(real_regs);
++
++  return ksu_handle_faccessat(dfd, filename_user, mode, NULL);
++}
++
++static int newfstatat_handler_pre(struct kprobe *p, struct pt_regs *regs)
++{
++  struct pt_regs *real_regs = PT_REAL_REGS(regs);
++  int *dfd = (int *)&PT_REGS_PARM1(real_regs);
++  const char __user **filename_user = (const char **)&PT_REGS_PARM2(real_regs);
++  int *flags = (int *)&PT_REGS_SYSCALL_PARM4(real_regs);
++
++  return ksu_handle_stat(dfd, filename_user, flags);
++}
++
++static int execve_handler_pre(struct kprobe *p, struct pt_regs *regs)
++{
++  struct pt_regs *real_regs = PT_REAL_REGS(regs);
++  const char __user **filename_user = (const char **)&PT_REGS_PARM1(real_regs);
++
++  return ksu_handle_execve_sucompat(AT_FDCWD, filename_user, NULL, NULL, NULL);
++}
++
++/* Helper to register a single kprobe */
++static __maybe_unused struct kprobe *init_kprobe(const char *name,
++             kprobe_pre_handler_t handler)
++{
++  struct kprobe *kp = kzalloc(sizeof(struct kprobe), GFP_KERNEL);
++  if (!kp)
++    return NULL;
++
++  kp->symbol_name = name;
++  kp->pre_handler = handler;
++
++  int ret = register_kprobe(kp);
++  pr_info("sucompat: register_%s kprobe: %d\n", name, ret);
++  if (ret) {
++    kfree(kp);
++    return NULL;
++  }
++
++  return kp;
++}
++
++#endif /* CONFIG_KPROBES */
++
++/* --------------------------------------------------------------------- */
++/*                     Module init / exit                                 */
++/* --------------------------------------------------------------------- */
++
++void ksu_sucompat_init(void)
++{
++#ifdef CONFIG_KPROBES
++  init_kprobe("sys_execve",     execve_handler_pre);
++  init_kprobe("sys_faccessat",  faccessat_handler_pre);
++  init_kprobe("sys_newfstatat", newfstatat_handler_pre);
++#endif
++}
++
++void ksu_sucompat_exit(void)
++{
++  /* Kprobes are automatically unregistered on module unload */
++}
+\ No newline at end of file
