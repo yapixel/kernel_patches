@@ -1,0 +1,46 @@
+--- a/kernel/ksud.c
++++ b/kernel/ksud.c
+@@ -44,10 +44,12 @@ static void stop_input_hook();
+ #ifdef CONFIG_KPROBES
+ static struct work_struct stop_vfs_read_work;
+ static struct work_struct stop_execve_hook_work;
+ static struct work_struct stop_input_hook_work;
+-#else
++#endif
++#if !defined(CONFIG_KSU_KPROBES_HOOK)
+ bool ksu_vfs_read_hook __read_mostly = true;
+ bool ksu_input_hook __read_mostly = true;
++EXPORT_SYMBOL(ksu_vfs_read_hook);
++EXPORT_SYMBOL(ksu_input_hook);
+ #endif
+ bool ksu_execveat_hook __read_mostly = true;
+ 
+@@ -273,7 +275,7 @@ static struct file_operations fops_proxy;
+ 
+ int ksu_handle_vfs_read(struct file **file_ptr, char __user **buf_ptr,
+ 			size_t *count_ptr, loff_t **pos)
+ {
+-#ifndef CONFIG_KPROBES
++#if !defined(CONFIG_KSU_KPROBES_HOOK)
+ 	if (!ksu_vfs_read_hook) {
+ 		return 0;
+ 	}
+@@ -370,7 +372,7 @@ static bool is_volumedown_enough(unsigned int count)
+ int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code,
+ 				  int *value)
+ {
+-#ifndef CONFIG_KPROBES
++#if !defined(CONFIG_KSU_KPROBES_HOOK)
+ 	if (!ksu_input_hook) {
+ 		return 0;
+ 	}
+@@ -616,7 +618,9 @@ void ksu_ksud_init()
+ void ksu_ksud_exit()
+ {
+ #ifdef CONFIG_KPROBES
++#ifdef MODULE
+ 	unregister_kprobe(&execve_kp);
++#endif
+ 	// this should be done before unregister vfs_read_kp
+ 	// unregister_kprobe(&vfs_read_kp);
+ 	unregister_kprobe(&input_event_kp);
