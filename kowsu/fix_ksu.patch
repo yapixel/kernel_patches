@@ -1,25 +1,14 @@
-commit cd8e4e1038453876a283a5387feb2e4ead6307ae
+commit a01696ebb13f7759e21b4c344e21aafd6732e66e
 Author: debiansid <zen@users.noreply.github.com>
-Date:   Mon Nov 3 20:21:03 2025 +0800
+Date:   Mon Nov 3 21:31:30 2025 +0800
 
     fix ksu
 
 diff --git a/kernel/ksu.c b/kernel/ksu.c
-index f6104416..8adb6031 100644
+index 74965588..6c18b10f 100644
 --- a/kernel/ksu.c
 +++ b/kernel/ksu.c
-@@ -11,6 +11,10 @@
- #include "ksu.h"
- #include "throne_tracker.h"
- 
-+#ifdef CONFIG_KSU_SUSFS
-+#include <linux/susfs.h>
-+#endif
-+
- static struct workqueue_struct *ksu_workqueue;
- 
- bool ksu_queue_work(struct work_struct *work)
-@@ -32,6 +36,21 @@ int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv,
+@@ -36,6 +36,21 @@ int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv,
  					    flags);
  }
  
@@ -28,12 +17,12 @@ index f6104416..8adb6031 100644
 +	// KernelSU devpts handler
 +	// This hook is called when devpts filesystem operations occur
 +	// Used for tracking or security enforcement on pseudo-terminals
-+	
++
 +#ifdef CONFIG_KSU_SUSFS
 +	// SUSFS integration if needed
 +	// susfs_ksu_handle_devpts(inode);
 +#endif
-+	
++
 +	return;
 +}
 +EXPORT_SYMBOL_GPL(ksu_handle_devpts);
@@ -41,31 +30,11 @@ index f6104416..8adb6031 100644
  extern void ksu_sucompat_init();
  extern void ksu_sucompat_exit();
  extern void ksu_ksud_init();
-@@ -49,6 +68,10 @@ int __init kernelsu_init(void)
- 	pr_alert("*************************************************************");
- #endif
- 
-+#ifdef CONFIG_KSU_SUSFS
-+	susfs_init();
-+#endif
-+
- 	ksu_core_init();
- 
- 	ksu_workqueue = alloc_ordered_workqueue("kernelsu_work_queue", 0);
 diff --git a/kernel/ksu.h b/kernel/ksu.h
-index b16d4424..ec302169 100644
+index 2a694618..ec302169 100644
 --- a/kernel/ksu.h
 +++ b/kernel/ksu.h
-@@ -25,8 +25,6 @@
- #define CMD_ENABLE_SU 15
- #define CMD_GET_MANAGER_UID 16
- 
--#define CMD_WIPE_UMOUNT_LIST 10000
--#define CMD_ADD_TRY_UMOUNT 10001
- #define CMD_NUKE_EXT4_SYSFS 10002
- #define CMD_TOGGLE_AVC_SPOOF 10003
- #define CMD_IS_AVC_SPOOF_ENABLED 10004
-@@ -91,6 +89,8 @@ struct app_profile {
+@@ -89,6 +89,8 @@ struct app_profile {
  
  bool ksu_queue_work(struct work_struct *work);
  
