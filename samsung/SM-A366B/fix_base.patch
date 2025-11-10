@@ -1,0 +1,12 @@
+--- basecopy.c	2025-11-07 16:42:54.156172400 -0800
++++ base.c	2025-11-07 16:49:48.492530845 -0800
+@@ -100,6 +100,9 @@
+ #include <linux/cpufreq_times.h>
+ #include <linux/task_integrity.h>
+ #include <linux/proca.h>
++#ifdef CONFIG_KSU_SUSFS_SUS_MAP
++#include <linux/susfs_def.h>
++#endif
+ #include <trace/events/oom.h>
+ #include <trace/hooks/sched.h>
+ #include "internal.h"
