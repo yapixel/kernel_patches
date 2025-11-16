@@ -1311,7 +1311,7 @@ index d6f37ed840e5..8524560bb000 100644
  
  		len = min(count, PM_ENTRY_BYTES * pm.pos);
 diff --git a/fs/proc_namespace.c b/fs/proc_namespace.c
-index 846f9455ae22..dd35ced83452 100644
+index 846f9455ae22..1f6c127ba127 100644
 --- a/fs/proc_namespace.c
 +++ b/fs/proc_namespace.c
 @@ -12,12 +12,19 @@
@@ -1328,7 +1328,7 @@ index 846f9455ae22..dd35ced83452 100644
  #include "internal.h"
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-+bool susfs_hide_sus_mnts_for_all_procs = true; // hide sus mounts for all processes by default
++extern bool susfs_hide_sus_mnts_for_all_procs;
 +#endif
 +
  static __poll_t mounts_poll(struct file *file, poll_table *wait)
