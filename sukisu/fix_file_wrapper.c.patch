@@ -1,0 +1,33 @@
+commit be5fb60a7fa8dd0760b17653394c21b0c98d5e4a
+Author: debiansid <debiansid@users.noreply.github.com>
+Date:   Tue Nov 18 06:32:26 2025 +0800
+
+    fix
+
+diff --git a/kernel/file_wrapper.c b/kernel/file_wrapper.c
+index 1ed0b40f..0a26dd76 100644
+--- a/kernel/file_wrapper.c
++++ b/kernel/file_wrapper.c
+@@ -286,6 +286,7 @@ static int ksu_wrapper_clone_file_range(struct file *file_in, loff_t pos_in,
+ 	}
+ 	return -EINVAL;
+ }
++#endif
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)
+ static int ksu_wrapper_dedupe_file_range(struct file *src_file, loff_t loff,
+ 				struct file *dst_file, loff_t dst_loff, u64 len) {
+@@ -309,6 +310,7 @@ static ssize_t ksu_wrapper_dedupe_file_range(struct file *src_file, u64 loff,
+ 	return -EINVAL;
+ }
+ #endif
++#endif
+ 
+ static int ksu_wrapper_release(struct inode *inode, struct file *filp) {
+ 	ksu_delete_file_wrapper(filp->private_data);
+@@ -382,4 +384,4 @@ struct ksu_file_wrapper* ksu_create_file_wrapper(struct file* fp) {
+ void ksu_delete_file_wrapper(struct ksu_file_wrapper* data) {
+ 	fput((struct file*) data->orig);
+ 	kfree(data);
+-}
+\ No newline at end of file
++}
