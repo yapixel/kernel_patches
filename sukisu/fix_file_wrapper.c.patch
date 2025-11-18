@@ -1,18 +1,36 @@
-commit be5fb60a7fa8dd0760b17653394c21b0c98d5e4a
+commit 83ea728da211b2561b456c5031021345b8422f2c
 Author: debiansid <debiansid@users.noreply.github.com>
-Date:   Tue Nov 18 06:32:26 2025 +0800
+Date:   Tue Nov 18 09:56:30 2025 +0800
 
     fix
 
 diff --git a/kernel/file_wrapper.c b/kernel/file_wrapper.c
-index 1ed0b40f..0a26dd76 100644
+index 1ed0b40f..44625131 100644
 --- a/kernel/file_wrapper.c
 +++ b/kernel/file_wrapper.c
-@@ -286,6 +286,7 @@ static int ksu_wrapper_clone_file_range(struct file *file_in, loff_t pos_in,
+@@ -286,7 +286,8 @@ static int ksu_wrapper_clone_file_range(struct file *file_in, loff_t pos_in,
  	}
  	return -EINVAL;
  }
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)
 +#endif
- #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0) && LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
  static int ksu_wrapper_dedupe_file_range(struct file *src_file, loff_t loff,
  				struct file *dst_file, loff_t dst_loff, u64 len) {
+ 	// TODO: determine which file to use
+@@ -297,7 +298,7 @@ static int ksu_wrapper_dedupe_file_range(struct file *src_file, loff_t loff,
+ 	}
+ 	return -EINVAL;
+ }
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
+ static ssize_t ksu_wrapper_dedupe_file_range(struct file *src_file, u64 loff,
+ 				u64 len, struct file *dst_file, u64 dst_loff) {
+ 	// TODO: determine which file to use
+@@ -382,4 +383,4 @@ struct ksu_file_wrapper* ksu_create_file_wrapper(struct file* fp) {
+ void ksu_delete_file_wrapper(struct ksu_file_wrapper* data) {
+ 	fput((struct file*) data->orig);
+ 	kfree(data);
+-}
+\ No newline at end of file
++}
