@@ -1,32 +1,32 @@
-From 1a9e048cc8097efd14f522231f7a781f7aa6e61a Mon Sep 17 00:00:00 2001
+From 859cbed74c6145a9c3895bf89a4395b5be621bfa Mon Sep 17 00:00:00 2001
 From: deepongi <infectedmushi@gmail.com>
-Date: Tue, 18 Nov 2025 08:26:01 +0000
-Subject: [PATCH] 50_add_susfs_to_kernelside_5ec1cff
+Date: Thu, 20 Nov 2025 09:34:31 +0000
+Subject: [PATCH] 50_add_susfs_to_kernelside_KOWX712
 
 ---
  drivers/input/input.c  |  10 ++
  fs/Makefile            |   2 +
- fs/devpts/inode.c      |  15 ++
+ fs/devpts/inode.c      |  15 +++
  fs/exec.c              |  26 ++++
- fs/namei.c             | 258 ++++++++++++++++++++++++++++++++++
- fs/namespace.c         | 308 +++++++++++++++++++++++++++++++++++++++++
- fs/notify/fdinfo.c     |  53 +++++++
- fs/open.c              |  21 +++
- fs/proc/base.c         |  29 ++++
+ fs/namei.c             | 258 +++++++++++++++++++++++++++++++++++++
+ fs/namespace.c         | 266 +++++++++++++++++++++++++++++++++++++++
+ fs/notify/fdinfo.c     |  53 ++++++++
+ fs/open.c              |  21 ++++
+ fs/proc/base.c         |  29 +++++
  fs/proc/bootconfig.c   |  11 ++
- fs/proc/fd.c           |  45 ++++++
- fs/proc/task_mmu.c     |  79 +++++++++++
+ fs/proc/fd.c           |  45 +++++++
+ fs/proc/task_mmu.c     |  79 ++++++++++++
  fs/proc_namespace.c    |  24 ++++
  fs/read_write.c        |  11 ++
- fs/readdir.c           | 280 +++++++++++++++++++++++++++++++++++++
+ fs/readdir.c           | 280 +++++++++++++++++++++++++++++++++++++++++
  fs/stat.c              |  40 ++++++
- fs/statfs.c            |  21 +++
+ fs/statfs.c            |  16 +++
  include/linux/mount.h  |   4 +
  kernel/kallsyms.c      |  32 +++++
  kernel/reboot.c        |  12 ++
- kernel/sys.c           |  15 ++
+ kernel/sys.c           |  15 +++
  security/selinux/avc.c |  19 ++-
- 22 files changed, 1314 insertions(+), 1 deletion(-)
+ 22 files changed, 1267 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/input/input.c b/drivers/input/input.c
 index 78be582b5..bdca57a9e 100644
@@ -573,25 +573,24 @@ index 1fa36df7b..e997ba39c 100644
  	return filp;
  }
 diff --git a/fs/namespace.c b/fs/namespace.c
-index 2a76269f2..bc818c1c3 100644
+index 2a76269f2..69f09f39c 100644
 --- a/fs/namespace.c
 +++ b/fs/namespace.c
-@@ -32,10 +32,39 @@
+@@ -32,10 +32,30 @@
  #include <linux/fs_context.h>
  #include <linux/shmem_fs.h>
  #include <linux/mnt_idmapping.h>
-+#if defined(CONFIG_KSU_SUSFS_SUS_MOUNT) || defined(CONFIG_KSU_SUSFS_TRY_UMOUNT) || defined(CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT) || defined(CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT) || defined(CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT)
++#if defined(CONFIG_KSU_SUSFS_SUS_MOUNT) || defined(CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT)
 +#include <linux/susfs_def.h>
 +#endif
  
  #include "pnode.h"
  #include "internal.h"
  
-+#if defined(CONFIG_KSU_SUSFS_SUS_MOUNT) || defined(CONFIG_KSU_SUSFS_TRY_UMOUNT) || defined(CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT) || defined(CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT) || defined(CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT)
++#if defined(CONFIG_KSU_SUSFS_SUS_MOUNT) || defined(CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT)
 +extern bool susfs_is_current_ksu_domain(void);
-+extern bool susfs_is_current_zygote_domain(void);
 +extern bool susfs_is_boot_completed_triggered;
-+#endif // #if defined(CONFIG_KSU_SUSFS_SUS_MOUNT) || defined(CONFIG_KSU_SUSFS_TRY_UMOUNT) || defined(CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT) || defined(CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT) || defined(CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT)
++#endif // #if defined(CONFIG_KSU_SUSFS_SUS_MOUNT) || defined(CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT)
 +
 +#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 +static DEFINE_IDA(susfs_ksu_mnt_group_ida);
@@ -600,14 +599,6 @@ index 2a76269f2..bc818c1c3 100644
 +#define CL_COPY_MNT_NS BIT(25) /* used by copy_mnt_ns() */
 +#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 +
-+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT
-+extern void susfs_auto_add_sus_ksu_default_mount(const char __user *to_pathname);
-+bool susfs_is_auto_add_sus_ksu_default_mount_enabled = true;
-+#endif // #ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT
-+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT
-+extern void susfs_auto_add_sus_bind_mount(const char *pathname, struct path *path_target);
-+bool susfs_is_auto_add_sus_bind_mount_enabled = true;
-+#endif // #ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT
 +#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT
 +extern void susfs_auto_add_try_umount_for_bind_mount(struct path *path);
 +bool susfs_is_auto_add_try_umount_for_bind_mount_enabled = true;
@@ -616,7 +607,7 @@ index 2a76269f2..bc818c1c3 100644
  /* Maximum number of mounts in a mount namespace */
  static unsigned int sysctl_mount_max __read_mostly = 100000;
  
-@@ -135,6 +164,20 @@ static int mnt_alloc_id(struct mount *mnt)
+@@ -135,6 +155,20 @@ static int mnt_alloc_id(struct mount *mnt)
  
  static void mnt_free_id(struct mount *mnt)
  {
@@ -637,7 +628,7 @@ index 2a76269f2..bc818c1c3 100644
  	ida_free(&mnt_id_ida, mnt->mnt_id);
  }
  
-@@ -143,7 +186,23 @@ static void mnt_free_id(struct mount *mnt)
+@@ -143,7 +177,23 @@ static void mnt_free_id(struct mount *mnt)
   */
  static int mnt_alloc_group_id(struct mount *mnt)
  {
@@ -661,7 +652,7 @@ index 2a76269f2..bc818c1c3 100644
  
  	if (res < 0)
  		return res;
-@@ -156,6 +215,22 @@ static int mnt_alloc_group_id(struct mount *mnt)
+@@ -156,6 +206,22 @@ static int mnt_alloc_group_id(struct mount *mnt)
   */
  void mnt_release_group_id(struct mount *mnt)
  {
@@ -684,7 +675,7 @@ index 2a76269f2..bc818c1c3 100644
  	ida_free(&mnt_group_ida, mnt->mnt_group_id);
  	mnt->mnt_group_id = 0;
  }
-@@ -193,6 +268,112 @@ int mnt_get_count(struct mount *mnt)
+@@ -193,6 +259,112 @@ int mnt_get_count(struct mount *mnt)
  #endif
  }
  
@@ -797,7 +788,7 @@ index 2a76269f2..bc818c1c3 100644
  static struct mount *alloc_vfsmnt(const char *name)
  {
  	struct mount *mnt = kmem_cache_zalloc(mnt_cache, GFP_KERNEL);
-@@ -220,6 +401,10 @@ static struct mount *alloc_vfsmnt(const char *name)
+@@ -220,6 +392,10 @@ static struct mount *alloc_vfsmnt(const char *name)
  		mnt->mnt_count = 1;
  		mnt->mnt_writers = 0;
  #endif
@@ -808,7 +799,7 @@ index 2a76269f2..bc818c1c3 100644
  
  		INIT_HLIST_NODE(&mnt->mnt_hash);
  		INIT_LIST_HEAD(&mnt->mnt_child);
-@@ -1010,7 +1195,19 @@ struct vfsmount *vfs_create_mount(struct fs_context *fc)
+@@ -1010,7 +1186,19 @@ struct vfsmount *vfs_create_mount(struct fs_context *fc)
  	if (!fc->root)
  		return ERR_PTR(-EINVAL);
  
@@ -828,7 +819,7 @@ index 2a76269f2..bc818c1c3 100644
  	if (!mnt)
  		return ERR_PTR(-ENOMEM);
  
-@@ -1097,7 +1294,37 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
+@@ -1097,7 +1285,37 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
  	struct mount *mnt;
  	int err;
  
@@ -866,31 +857,26 @@ index 2a76269f2..bc818c1c3 100644
  	if (!mnt)
  		return ERR_PTR(-ENOMEM);
  
-@@ -2475,6 +2702,23 @@ static int do_loopback(struct path *path, const char *old_name,
+@@ -2475,6 +2693,18 @@ static int do_loopback(struct path *path, const char *old_name,
  		umount_tree(mnt, UMOUNT_SYNC);
  		unlock_mount_hash();
  	}
-+#if defined(CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT) || defined(CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT)
-+	// - Check if bind mounted path should be hidden and umounted automatically.
++
++#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT
++	// - Check if bind mounted path should be umounted automatically.
 +	// - We keep checking for ksu process only until boot-completed stage is triggered
-+	if (!susfs_is_boot_completed_triggered && susfs_is_current_ksu_domain()) {
-+#if defined(CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT)
-+		if (susfs_is_auto_add_sus_bind_mount_enabled) {
-+			susfs_auto_add_sus_bind_mount(old_name, &old_path);
-+		}
-+#endif
-+#if defined(CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT)
-+		if (susfs_is_auto_add_try_umount_for_bind_mount_enabled) {
-+			susfs_auto_add_try_umount_for_bind_mount(path);
-+		}
-+#endif
++	if (!susfs_is_boot_completed_triggered &&
++		 susfs_is_current_ksu_domain() &&
++		 susfs_is_auto_add_try_umount_for_bind_mount_enabled)
++	{
++		susfs_auto_add_try_umount_for_bind_mount(path);
 +	}
-+#endif // #if defined(CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT) || defined(CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT)
++#endif // #ifdef CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT
 +
  out2:
  	unlock_mount(mp);
  out:
-@@ -3506,6 +3750,9 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
+@@ -3506,6 +3736,9 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
  	copy_flags = CL_COPY_UNBINDABLE | CL_EXPIRE;
  	if (user_ns != ns->user_ns)
  		copy_flags |= CL_SHARED_TO_SLAVE;
@@ -900,39 +886,7 @@ index 2a76269f2..bc818c1c3 100644
  	new = copy_tree(old, old->mnt.mnt_root, copy_flags);
  	if (IS_ERR(new)) {
  		namespace_unlock();
-@@ -3619,6 +3866,15 @@ SYSCALL_DEFINE5(mount, char __user *, dev_name, char __user *, dir_name,
- 
- 	ret = do_mount(kernel_dev, dir_name, kernel_type, flags, options);
- 
-+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT
-+	// - We do not check anymore if boot-completed stage is triggered
-+	//   just to stop the performance loss
-+	// - Just for the compatibility of Magic Mount KernelSU
-+	if (!susfs_is_boot_completed_triggered && !ret && susfs_is_auto_add_sus_ksu_default_mount_enabled && susfs_is_current_ksu_domain()) {
-+		susfs_auto_add_sus_ksu_default_mount(dir_name);
-+	}
-+#endif
-+
- 	kfree(options);
- out_data:
- 	kfree(kernel_dev);
-@@ -3841,6 +4097,15 @@ SYSCALL_DEFINE5(move_mount,
- 	path_put(&to_path);
- out_from:
- 	path_put(&from_path);
-+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT
-+	// - We do not check anymore if boot-completed stage is triggered
-+	//   just to stop the performance loss
-+	// - For Legacy KSU mount scheme
-+	if (!susfs_is_boot_completed_triggered && !ret && susfs_is_auto_add_sus_ksu_default_mount_enabled && susfs_is_current_ksu_domain()) {
-+		susfs_auto_add_sus_ksu_default_mount(to_pathname);
-+	}
-+#endif
-+
- 	return ret;
- }
- 
-@@ -4753,3 +5018,46 @@ static int __init init_fs_namespace_sysctls(void)
+@@ -4753,3 +4986,36 @@ static int __init init_fs_namespace_sysctls(void)
  fs_initcall(init_fs_namespace_sysctls);
  
  #endif /* CONFIG_SYSCTL */
@@ -954,6 +908,7 @@ index 2a76269f2..bc818c1c3 100644
 +	}
 +
 +	get_mnt_ns(mnt_ns);
++
 +	first_mnt_id = list_first_entry(&mnt_ns->list, struct mount, mnt_list)->mnt_id;
 +	list_for_each_entry(mnt, &mnt_ns->list, mnt_list) {
 +		// It is very important that we don't reorder the sus mount if it is not umounted
@@ -963,19 +918,8 @@ index 2a76269f2..bc818c1c3 100644
 +		WRITE_ONCE(mnt->mnt.susfs_mnt_id_backup, READ_ONCE(mnt->mnt_id));
 +		WRITE_ONCE(mnt->mnt_id, first_mnt_id++);
 +	}
++
 +	put_mnt_ns(mnt_ns);
-+}
-+
-+void susfs_assign_fake_mnt_id(struct mount *mnt) {
-+	lock_mount_hash();
-+
-+	ida_free(&mnt_id_ida, mnt->mnt_id);
-+
-+	mnt->mnt_id = DEFAULT_KSU_MNT_ID;
-+	mnt->mnt_group_id = ida_alloc_min(&susfs_ksu_mnt_group_ida, DEFAULT_KSU_MNT_GROUP_ID, GFP_KERNEL);
-+	atomic64_add(1, &susfs_ksu_mounts);
-+
-+	unlock_mount_hash();
 +}
 +#endif
 +
@@ -2038,7 +1982,7 @@ index ef50573c7..4f0b22dc8 100644
  		      AT_STATX_SYNC_TYPE))
  		return -EINVAL;
 diff --git a/fs/statfs.c b/fs/statfs.c
-index 96d1c3edf..086a31770 100644
+index 96d1c3edf..f8d47f5e7 100644
 --- a/fs/statfs.c
 +++ b/fs/statfs.c
 @@ -9,6 +9,10 @@
@@ -2076,18 +2020,6 @@ index 96d1c3edf..086a31770 100644
  }
  EXPORT_SYMBOL(vfs_statfs);
  
-@@ -240,6 +256,11 @@ static int vfs_ustat(dev_t dev, struct kstatfs *sbuf)
- 	if (!s)
- 		return -EINVAL;
- 
-+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-+	if (unlikely(s->s_root->d_inode->i_mapping->flags & BIT_SUS_MOUNT)) {
-+		return -EINVAL;
-+	}
-+#endif
- 	err = statfs_by_dentry(s->s_root, sbuf);
- 	drop_super(s);
- 	return err;
 diff --git a/include/linux/mount.h b/include/linux/mount.h
 index 23baecab7..3207b6107 100644
 --- a/include/linux/mount.h
@@ -2269,5 +2201,5 @@ index d93af9249..15e526609 100644
  	audit_log_format(ab, " tclass=%s", tclass);
  
 -- 
-2.51.2
+2.52.0
 
