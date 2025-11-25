@@ -1,5 +1,5 @@
---- task_mmuorig.c	2025-11-21 16:49:58.816442000 -0800
-+++ task_mmu.c	2025-11-21 16:54:09.396481529 -0800
+--- a/fs/proc/task_mmu.c
++++ b/fs/proc/task_mmu.c
 @@ -1763,6 +1763,9 @@
  	unsigned long start_vaddr;
  	unsigned long end_vaddr;
