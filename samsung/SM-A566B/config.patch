@@ -1,5 +1,5 @@
---- gki_defconfigorig	2025-06-12 16:03:24.000000000 -0700
-+++ gki_defconfig	2025-11-21 16:56:34.036494079 -0800
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
 @@ -787,3 +787,42 @@
  CONFIG_KUNIT_EXAMPLE_TEST=m
  # CONFIG_KUNIT_DEFAULT_ENABLED is not set
