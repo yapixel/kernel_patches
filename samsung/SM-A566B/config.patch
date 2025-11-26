@@ -10,7 +10,7 @@ CONFIG_DEFAULT_SECURITY_SELINUX=y
 #
 # Kernel hardening options
 #
-@@ -7817,3 +7817,42 @@
+@@ -7814,3 +7814,42 @@
 CONFIG_ARCH_USE_MEMTEST=y
 # CONFIG_MEMTEST is not set
 # end of Kernel Testing and Coverage
