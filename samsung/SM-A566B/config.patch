@@ -1,6 +1,6 @@
 --- a/arch/arm64/configs/a56_defconfig
 +++ b/arch/arm64/configs/a56_defconfig
-@@ -7049,3 +7049,4 @@
+@@ -7049,4 +7049,4 @@
  CONFIG_GAF_V6=y
  CONFIG_DEFAULT_SECURITY_SELINUX=y
  # CONFIG_DEFAULT_SECURITY_DAC is not set
