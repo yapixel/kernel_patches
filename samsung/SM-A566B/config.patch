@@ -1,5 +1,15 @@
 --- a/arch/arm64/configs/a56_defconfig
 +++ b/arch/arm64/configs/a56_defconfig
+@@ -7049,7 +7049,7 @@
+CONFIG_GAF_V6=y
+CONFIG_DEFAULT_SECURITY_SELINUX=y
+# CONFIG_DEFAULT_SECURITY_DAC is not set
+-CONFIG_LSM="landlock,lockdown,yama,loadpin,safesetid,integrity,selinux,smack,tomoyo,apparmor,bpf"
++CONFIG_LSM="landlock,lockdown,baseband_guard,yama,loadpin,safesetid,integrity,selinux,smack,tomoyo,apparmor,bpf"
+
+#
+# Kernel hardening options
+#
 @@ -7817,3 +7817,42 @@
 CONFIG_ARCH_USE_MEMTEST=y
 # CONFIG_MEMTEST is not set
