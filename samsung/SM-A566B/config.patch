@@ -1,9 +1,9 @@
---- a/arch/arm64/configs/gki_defconfig
-+++ b/arch/arm64/configs/gki_defconfig
-@@ -787,3 +787,42 @@
- CONFIG_KUNIT_EXAMPLE_TEST=m
- # CONFIG_KUNIT_DEFAULT_ENABLED is not set
- # CONFIG_RUNTIME_TESTING_MENU is not set
+--- a/arch/arm64/configs/a56_defconfig
++++ b/arch/arm64/configs/a56_defconfig
+@@ -7817,3 +7817,42 @@
+CONFIG_ARCH_USE_MEMTEST=y
+# CONFIG_MEMTEST is not set
+# end of Kernel Testing and Coverage
 +
 +# KSU NEXT
 +CONFIG_KSU=y
