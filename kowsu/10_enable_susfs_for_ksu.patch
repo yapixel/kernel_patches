@@ -1,26 +1,27 @@
-From 3c5ef72be1b906c9fbe2d8ffa5fd92668c5a39fb Mon Sep 17 00:00:00 2001
+From 8ee785bc8b3b777b7b17452fc90cd83654f02ebc Mon Sep 17 00:00:00 2001
 From: deepongi <infectedmushi@gmail.com>
-Date: Fri, 28 Nov 2025 14:37:01 +0000
+Date: Sun, 30 Nov 2025 19:01:40 +0000
 Subject: [PATCH] 10_enable_susfs_for_ksu
 
 ---
+ kernel/Kbuild            |   1 -
  kernel/Kconfig           |  91 ++++++++-
- kernel/Makefile          |  10 +-
+ kernel/Makefile          |   9 +
  kernel/allowlist.c       |   4 +
- kernel/app_profile.c     | 416 ++++++++++++++++++++-------------------
+ kernel/app_profile.c     | 417 ++++++++++++++++++++-------------------
  kernel/kernel_umount.c   |   3 +
- kernel/ksu.c             |  18 +-
+ kernel/ksu.c             |  19 +-
  kernel/ksud.c            |  52 +++++
  kernel/ksud.h            |  19 ++
  kernel/manager.h         |  14 ++
  kernel/selinux/rules.c   |   9 +
  kernel/selinux/selinux.c |  93 +++++++++
  kernel/selinux/selinux.h |  13 ++
- kernel/setuid_hook.c     | 119 +++++++++++
+ kernel/setuid_hook.c     | 116 +++++++++++
  kernel/sucompat.c        | 124 ++++++++++++
  kernel/sucompat.h        |  10 +-
  kernel/supercalls.c      | 150 ++++++++++++++
- 16 files changed, 933 insertions(+), 212 deletions(-)
+ 17 files changed, 931 insertions(+), 213 deletions(-)
 
 diff --git a/kernel/Kbuild b/kernel/Kbuild
 index d98df1c3..ac7a98c3 100644
@@ -182,7 +183,7 @@ index b163eb3f..0fa5f8de 100644
  
      return result;
 diff --git a/kernel/app_profile.c b/kernel/app_profile.c
-index ad62a2ff..777f4176 100644
+index ad62a2ff..1e848620 100644
 --- a/kernel/app_profile.c
 +++ b/kernel/app_profile.c
 @@ -20,47 +20,49 @@
@@ -270,7 +271,7 @@ index ad62a2ff..777f4176 100644
  }
  
  #if defined(__aarch64__)
-@@ -71,200 +73,204 @@ extern long __x64_sys_setns(const struct pt_regs *regs);
+@@ -71,200 +73,205 @@ extern long __x64_sys_setns(const struct pt_regs *regs);
  
  static long ksu_sys_setns(int fd, int flags)
  {
@@ -639,6 +640,7 @@ index ad62a2ff..777f4176 100644
 +
 +    setup_selinux(profile->selinux_domain);
 +    setup_mount_namespace(profile->namespaces);
++
 +#ifndef CONFIG_KSU_SUSFS
 +    for_each_thread (p, t) {
 +        ksu_set_task_tracepoint_flag(t);
@@ -668,13 +670,14 @@ index 35be022f..cbb5ddfd 100644
      pr_info("handle umount for uid: %d, pid: %d\n", new_uid, current->pid);
  
 diff --git a/kernel/ksu.c b/kernel/ksu.c
-index 8205e104..490377f2 100644
+index 8205e104..86128bfe 100644
 --- a/kernel/ksu.c
 +++ b/kernel/ksu.c
-@@ -4,12 +4,17 @@
+@@ -3,13 +3,17 @@
+ #include <linux/kobject.h>
  #include <linux/module.h>
  #include <linux/workqueue.h>
- #include <linux/moduleparam.h>
+-#include <linux/moduleparam.h>
 +#ifdef CONFIG_KSU_SUSFS
 +#include <linux/susfs.h>
 +#endif // #ifdef CONFIG_KSU_SUSFS
@@ -689,7 +692,7 @@ index 8205e104..490377f2 100644
  #include "ksud.h"
  #include "supercalls.h"
  
-@@ -35,13 +40,21 @@ int __init kernelsu_init(void)
+@@ -35,13 +39,21 @@ int __init kernelsu_init(void)
  
      ksu_supercalls_init();
  
@@ -711,7 +714,7 @@ index 8205e104..490377f2 100644
  
  #ifdef MODULE
  #ifndef CONFIG_KSU_DEBUG
-@@ -60,9 +73,11 @@ void kernelsu_exit(void)
+@@ -60,9 +72,11 @@ void kernelsu_exit(void)
  
      ksu_observer_exit();
  
@@ -723,7 +726,7 @@ index 8205e104..490377f2 100644
  
      ksu_supercalls_exit();
  
-@@ -79,5 +94,4 @@ MODULE_DESCRIPTION("Android KernelSU");
+@@ -79,5 +93,4 @@ MODULE_DESCRIPTION("Android KernelSU");
  MODULE_IMPORT_NS("VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver");
  #else
  MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
@@ -1104,7 +1107,7 @@ index 431e0441..4b1d11d0 100644
 +
  #endif
 diff --git a/kernel/setuid_hook.c b/kernel/setuid_hook.c
-index 016ac058..d9ecd63f 100644
+index 016ac058..15e6f912 100644
 --- a/kernel/setuid_hook.c
 +++ b/kernel/setuid_hook.c
 @@ -27,6 +27,9 @@
@@ -1159,7 +1162,7 @@ index 016ac058..d9ecd63f 100644
  int ksu_handle_setresuid(uid_t ruid, uid_t euid, uid_t suid)
  {
      // we rely on the fact that zygote always call setresuid(3) with same uids
-@@ -135,6 +163,97 @@ int ksu_handle_setresuid(uid_t ruid, uid_t euid, uid_t suid)
+@@ -135,6 +163,94 @@ int ksu_handle_setresuid(uid_t ruid, uid_t euid, uid_t suid)
  
      return 0;
  }
@@ -1237,20 +1240,17 @@ index 016ac058..d9ecd63f 100644
 +    // Handle kernel umount
 +    ksu_handle_umount(old_uid, new_uid);
 +
-+    get_task_struct(current);
-+
 +#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 +    // We can reorder the mnt_id now after all sus mounts are umounted
 +    susfs_reorder_mnt_id();
 +#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 +
-+    susfs_set_current_proc_umounted();
-+
-+    put_task_struct(current);
-+
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
 +    susfs_run_sus_path_loop(new_uid);
 +#endif // #ifdef CONFIG_KSU_SUSFS_SUS_PATH
++
++    susfs_set_current_proc_umounted();
++
 +    return 0;
 +}
 +#endif // #ifndef CONFIG_KSU_SUSFS
