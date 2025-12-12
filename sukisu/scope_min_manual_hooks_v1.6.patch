@@ -123,39 +123,54 @@ diff --git a/fs/stat.c b/fs/stat.c
 index 357a1db41..d5087ca1f 100644
 --- a/fs/stat.c
 +++ b/fs/stat.c
-@@ -401,6 +401,12 @@ SYSCALL_DEFINE2(newlstat, const char __user *, filename,
- 	return cp_new_stat(&stat, statbuf);
+@@ -401,12 +401,6 @@ SYSCALL_DEFINE2(newlstat, const char __user *, filename,
+  return cp_new_stat(&stat, statbuf);
  }
  
-+#if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK)
-+__attribute__((hot))
-+extern int ksu_handle_stat(int *dfd, const char __user **filename_user,
-+		               int *flags);
-+#endif
-+
+-#if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK)
+-__attribute__((hot))
+-extern int ksu_handle_stat(int *dfd, const char __user **filename_user,
+-                  int *flags);
+-#endif
+-
  #if !defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_SYS_NEWFSTATAT)
  SYSCALL_DEFINE4(newfstatat, int, dfd, const char __user *, filename,
- 		struct stat __user *, statbuf, int, flag)
-@@ -408,6 +414,9 @@ SYSCALL_DEFINE4(newfstatat, int, dfd, const char __user *, filename,
- 	struct kstat stat;
- 	int error;
+    struct stat __user *, statbuf, int, flag)
+@@ -414,8 +408,15 @@ SYSCALL_DEFINE4(newfstatat, int, dfd, const char __user *, filename,
+  struct kstat stat;
+  int error;
  
 +#if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK)
-+	ksu_handle_stat(&dfd, &filename, &flag);
++ {
++   struct filename *name = getname(filename);
++   ksu_handle_stat(&dfd, &name, &flag);
++   filename = name->name;
++   putname(name);
++ }
 +#endif
- 	error = vfs_fstatat(dfd, filename, &stat, flag);
- 	if (error)
- 		return error;
-@@ -559,6 +568,9 @@ SYSCALL_DEFINE4(fstatat64, int, dfd, const char __user *, filename,
- 	struct kstat stat;
- 	int error;
+  error = vfs_fstatat(dfd, filename, &stat, flag);
+- if (error)
+-   return error;
+  return cp_new_stat(&stat, statbuf);
+ }
+ 
+@@ -568,8 +569,15 @@ SYSCALL_DEFINE4(fstatat64, int, dfd, const char __user *, filename,
+  struct kstat stat;
+  int error;
  
 +#if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK) // 32-bit su
-+	ksu_handle_stat(&dfd, &filename, &flag);
++ {
++   struct filename *name = getname(filename);
++   ksu_handle_stat(&dfd, &name, &flag);
++   filename = name->name;
++   putname(name);
++ }
 +#endif
- 	error = vfs_fstatat(dfd, filename, &stat, flag);
- 	if (error)
- 		return error;
+  error = vfs_fstatat(dfd, filename, &stat, flag);
+- if (error)
+-   return error;
+  return cp_new_stat(&stat, statbuf);
+ }
 diff --git a/kernel/reboot.c b/kernel/reboot.c
 index 5105f2a46..c0bf3597d 100644
 --- a/kernel/reboot.c
