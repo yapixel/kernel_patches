@@ -1,38 +1,10 @@
 --- a/kernel/sucompat.c
 +++ b/kernel/sucompat.c
-@@ -70,13 +70,14 @@
- 
- static char __user *ksud_user_path(void)
- {
--	static const char ksud_path[] = KSUD_PATH;
-+    static const char ksud_path[] = KSUD_PATH;
- 
--	return userspace_stack_buffer(ksud_path, sizeof(ksud_path));
-+    return userspace_stack_buffer(ksud_path, sizeof(ksud_path));
+@@ -75,6 +75,7 @@
+ 	return userspace_stack_buffer(ksud_path, sizeof(ksud_path));
  }
  
 +#ifndef CONFIG_KSU_SUSFS
  int ksu_handle_faccessat(int *dfd, const char __user **filename_user,
--		int *mode, int *__unused_flags)
-+        int *mode, int *__unused_flags)
+ 		int *mode, int *__unused_flags)
  {
- 	const char su[] = SU_PATH;
- 
-@@ -88,12 +89,12 @@
- 	memset(path, 0, sizeof(path));
- 	strncpy_from_user_nofault(path, *filename_user, sizeof(path));
- 
--	if (unlikely(!memcmp(path, su, sizeof(su)))) {
--		pr_info("faccessat su->sh!\n");
--		*filename_user = sh_user_path();
--	}
-+    if (unlikely(!memcmp(path, su, sizeof(su)))) {
-+        pr_info("faccessat su->sh!\n");
-+        *filename_user = sh_user_path();
-+    }
- 
--	return 0;
-+    return 0;
- }
- 
- int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
