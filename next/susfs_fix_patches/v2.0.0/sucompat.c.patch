@@ -18,7 +18,7 @@
  {
  	const char su[] = SU_PATH;
  
-@@ -88,13 +89,14 @@
+@@ -88,12 +89,12 @@
  	memset(path, 0, sizeof(path));
  	strncpy_from_user_nofault(path, *filename_user, sizeof(path));
  
@@ -34,7 +34,5 @@
 -	return 0;
 +    return 0;
  }
-+#endif // #ifndef CONFIG_KSU_SUSFS
  
  int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
- {
