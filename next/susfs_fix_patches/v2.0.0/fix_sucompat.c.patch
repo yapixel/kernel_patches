@@ -1,6 +1,8 @@
+diff --git a/kernel/sucompat.c b/kernel/sucompat.c
+index 6b588fa3..31726299 100644
 --- a/kernel/sucompat.c
 +++ b/kernel/sucompat.c
-@@ -75,6 +75,7 @@
+@@ -75,6 +75,7 @@ static char __user *ksud_user_path(void)
  	return userspace_stack_buffer(ksud_path, sizeof(ksud_path));
  }
  

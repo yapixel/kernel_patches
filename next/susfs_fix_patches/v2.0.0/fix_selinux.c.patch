@@ -1,6 +1,8 @@
+diff --git a/kernel/selinux/selinux.c b/kernel/selinux/selinux.c
+index b168b285..67b5bdd9 100644
 --- a/kernel/selinux/selinux.c
 +++ b/kernel/selinux/selinux.c
-@@ -162,4 +162,95 @@
+@@ -151,4 +151,95 @@ u32 ksu_get_ksu_file_sid()
          pr_info("get ksufile sid err %d\n", err);
      }
      return ksu_file_sid;
@@ -98,4 +100,3 @@
 +    susfs_set_sid(KERNEL_PRIV_APP_DOMAIN, &susfs_priv_app_sid);
 +}
 +#endif // #ifdef CONFIG_KSU_SUSFS
-\ No newline at end of file
