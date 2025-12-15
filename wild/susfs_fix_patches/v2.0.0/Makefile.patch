@@ -1,0 +1,27 @@
+--- a/kernel/Makefile
++++ b/kernel/Makefile
+@@ -4,6 +4,16 @@
+ $(info -- KDIR: $(KDIR))
+ $(info -- MDIR: $(MDIR))
+ 
++## For susfs stuff ##
++ifeq ($(shell test -e $(srctree)/fs/susfs.c; echo $$?),0)
++$(eval SUSFS_VERSION=$(shell cat $(srctree)/include/linux/susfs.h | grep -E '^#define SUSFS_VERSION' | cut -d' ' -f3 | sed 's/"//g'))
++$(info )
++$(info -- SUSFS_VERSION: $(SUSFS_VERSION))
++else
++$(info -- You have not integrated susfs in your kernel yet.)
++$(info -- Read: https://gitlab.com/simonpunk/susfs4ksu)
++endif
++
+ .PHONY: all compdb clean format
+ 
+ all: check_symbol
+@@ -18,5 +28,4 @@
+ 	$(CC) tools/check_symbol.c -o check_symbol
+ format:
+ 	find . -name "*.c" -o -name "*.h" -print0 | xargs -0 clang-format -i
+-
+-# Keep a new line here!! Because someone may append config
+\ No newline at end of file
++# Keep a new line here!! Because someone may append config
