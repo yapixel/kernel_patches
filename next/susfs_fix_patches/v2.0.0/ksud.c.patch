@@ -1,0 +1,280 @@
+--- a/kernel/ksud.c
++++ b/kernel/ksud.c
+@@ -222,14 +222,22 @@
+ 		return 0;
+ 
+ 	filename = *filename_ptr;
+-	if (IS_ERR(filename)) {
+-		return 0;
+-	}
+-
+-	// https://cs.android.com/android/platform/superproject/+/android-16.0.0_r2:system/core/init/main.cpp;l=77
+-	if (unlikely(!memcmp(filename->name, system_bin_init,
+-				sizeof(system_bin_init) - 1) &&
+-			argv)) {
++    if (IS_ERR(filename)) {
++        return 0;
++    }
++
++#ifdef CONFIG_KSU_SUSFS
++    if (!ksu_handle_execveat_init(filename)) {
++        // - return non-zero here if ksu_handle_execveat_init() return success
++        //   as we don't want it to execute ksu_handle_execveat_sucompat()
++        return 1;
++    }
++#endif // #ifdef CONFIG_KSU_SUSFS
++
++    // https://cs.android.com/android/platform/superproject/+/android-16.0.0_r2:system/core/init/main.cpp;l=77
++    if (unlikely(!memcmp(filename->name, system_bin_init,
++                 sizeof(system_bin_init) - 1) &&
++            argv)) {
+ 		// /system/bin/init executed
+ 		int argc = count(*argv, MAX_ARG_STRINGS);
+ 		pr_info("/system/bin/init argc: %d\n", argc);
+@@ -300,10 +308,16 @@
+ }
+ 
+ static int ksu_handle_vfs_read(struct file **file_ptr, char __user **buf_ptr,
+-				size_t *count_ptr, loff_t **pos)
++                size_t *count_ptr, loff_t **pos)
+ {
+-	struct file *file;
+-	char __user *buf;
++#ifdef CONFIG_KSU_SUSFS
++    if (!ksu_vfs_read_hook) {
++        return 0;
++    }
++#endif // #ifdef CONFIG_KSU_SUSFS
++
++    struct file *file;
++    char __user *buf;
+ 	size_t count;
+ 
+ 	if (strcmp(current->comm, "init")) {
+@@ -388,11 +402,16 @@
+ 	return 0;
+ }
+ 
++#ifndef CONFIG_KSU_SUSFS
+ static int ksu_handle_sys_read(unsigned int fd, char __user **buf_ptr,
+-				size_t *count_ptr)
++                size_t *count_ptr)
++#else
++int ksu_handle_sys_read(unsigned int fd, char __user **buf_ptr,
++                               size_t *count_ptr)
++#endif // #ifndef CONFIG_KSU_SUSFS
+ {
+-	struct file *file = fget(fd);
+-	if (!file) {
++    struct file *file = fget(fd);
++    if (!file) {
+ 		return 0;
+ 	}
+ 	int result = ksu_handle_vfs_read(&file, buf_ptr, count_ptr, NULL);
+@@ -408,11 +427,17 @@
+ }
+ 
+ int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code,
+-					int *value)
++                    int *value)
+ {
+-	if (*type == EV_KEY && *code == KEY_VOLUMEDOWN) {
+-		int val = *value;
+-		pr_info("KEY_VOLUMEDOWN val: %d\n", val);
++#ifdef CONFIG_KSU_SUSFS
++    if (!ksu_input_hook) {
++        return 0;
++    }
++#endif // #ifdef CONFIG_KSU_SUSFS
++
++    if (*type == EV_KEY && *code == KEY_VOLUMEDOWN) {
++        int val = *value;
++        pr_info("KEY_VOLUMEDOWN val: %d\n", val);
+ 		if (val) {
+ 			// key pressed, count it
+ 			volumedown_pressed_count += 1;
+@@ -450,108 +475,124 @@
+ #ifndef CONFIG_KSU_SUSFS
+ static int sys_execve_handler_pre(struct kprobe *p, struct pt_regs *regs)
+ {
+-	struct pt_regs *real_regs = PT_REAL_REGS(regs);
+-	const char __user **filename_user =
+-		(const char **)&PT_REGS_PARM1(real_regs);
+-	const char __user *const __user *__argv =
+-		(const char __user *const __user *)PT_REGS_PARM2(real_regs);
+-	struct user_arg_ptr argv = { .ptr.native = __argv };
+-	struct filename filename_in, *filename_p;
+-	char path[32];
+-	long ret;
+-	unsigned long addr;
+-	const char __user *fn;
+-
+-	if (!filename_user)
+-		return 0;
+-
+-	addr = untagged_addr((unsigned long)*filename_user);
+-	fn = (const char __user *)addr;
++    struct pt_regs *real_regs = PT_REAL_REGS(regs);
++    const char __user **filename_user =
++        (const char **)&PT_REGS_PARM1(real_regs);
++    const char __user *const __user *__argv =
++        (const char __user *const __user *)PT_REGS_PARM2(real_regs);
++    struct user_arg_ptr argv = { .ptr.native = __argv };
++    struct filename filename_in, *filename_p;
++    char path[32];
++    long ret;
++    unsigned long addr;
++    const char __user *fn;
++
++    if (!filename_user)
++        return 0;
++
++    addr = untagged_addr((unsigned long)*filename_user);
++    fn = (const char __user *)addr;
++
++    memset(path, 0, sizeof(path));
++    ret = strncpy_from_user_nofault(path, fn, 32);
++    if (ret < 0 && try_set_access_flag(addr)) {
++        ret = strncpy_from_user_nofault(path, fn, 32);
++    }
++    if (ret < 0) {
++        pr_err("Access filename failed for execve_handler_pre\n");
++        return 0;
++    }
++    filename_in.name = path;
+ 
+-	memset(path, 0, sizeof(path));
+-	ret = strncpy_from_user_nofault(path, fn, 32);
+-	if (ret < 0 && try_set_access_flag(addr)) {
+-		ret = strncpy_from_user_nofault(path, fn, 32);
+-	}
+-	if (ret < 0) {
+-		pr_err("Access filename failed for execve_handler_pre\n");
+-		return 0;
+-	}
+-	filename_in.name = path;
+-
+-	filename_p = &filename_in;
+-	return ksu_handle_execveat_ksud(AT_FDCWD, &filename_p, &argv, NULL, NULL);
++    filename_p = &filename_in;
++    return ksu_handle_execveat_ksud(AT_FDCWD, &filename_p, &argv, NULL, NULL);
+ }
+ 
+ static int sys_read_handler_pre(struct kprobe *p, struct pt_regs *regs)
+ {
+-	struct pt_regs *real_regs = PT_REAL_REGS(regs);
+-	unsigned int fd = PT_REGS_PARM1(real_regs);
+-	char __user **buf_ptr = (char __user **)&PT_REGS_PARM2(real_regs);
+-	size_t count_ptr = (size_t *)&PT_REGS_PARM3(real_regs);
++    struct pt_regs *real_regs = PT_REAL_REGS(regs);
++    unsigned int fd = PT_REGS_PARM1(real_regs);
++    char __user **buf_ptr = (char __user **)&PT_REGS_PARM2(real_regs);
++    size_t count_ptr = (size_t *)&PT_REGS_PARM3(real_regs);
+ 
+-	return ksu_handle_sys_read(fd, buf_ptr, count_ptr);
++    return ksu_handle_sys_read(fd, buf_ptr, count_ptr);
+ }
+ 
+ static int input_handle_event_handler_pre(struct kprobe *p,
+-						struct pt_regs *regs)
++                        struct pt_regs *regs)
+ {
+-	unsigned int *type = (unsigned int *)&PT_REGS_PARM2(regs);
+-	unsigned int *code = (unsigned int *)&PT_REGS_PARM3(regs);
+-	int *value = (int *)&PT_REGS_CCALL_PARM4(regs);
+-	return ksu_handle_input_handle_event(type, code, value);
++    unsigned int *type = (unsigned int *)&PT_REGS_PARM2(regs);
++    unsigned int *code = (unsigned int *)&PT_REGS_PARM3(regs);
++    int *value = (int *)&PT_REGS_CCALL_PARM4(regs);
++    return ksu_handle_input_handle_event(type, code, value);
+ }
+ 
+ static struct kprobe execve_kp = {
+-	.symbol_name = SYS_EXECVE_SYMBOL,
+-	.pre_handler = sys_execve_handler_pre,
++    .symbol_name = SYS_EXECVE_SYMBOL,
++    .pre_handler = sys_execve_handler_pre,
+ };
+ static struct kprobe vfs_read_kp = {
+-	.symbol_name = SYS_READ_SYMBOL,
+-	.pre_handler = sys_read_handler_pre,
++    .symbol_name = SYS_READ_SYMBOL,
++    .pre_handler = sys_read_handler_pre,
+ };
+ 
+ static struct kprobe input_event_kp = {
+-	.symbol_name = "input_event",
+-	.pre_handler = input_handle_event_handler_pre,
++    .symbol_name = "input_event",
++    .pre_handler = input_handle_event_handler_pre,
+ };
+ 
+ static void do_stop_vfs_read_hook(struct work_struct *work)
+ {
+-	unregister_kprobe(&vfs_read_kp);
++    unregister_kprobe(&vfs_read_kp);
+ }
+ 
+ static void do_stop_execve_hook(struct work_struct *work)
+ {
+-	unregister_kprobe(&execve_kp);
++    unregister_kprobe(&execve_kp);
+ }
+ 
+ static void do_stop_input_hook(struct work_struct *work)
+ {
+-	unregister_kprobe(&input_event_kp);
++    unregister_kprobe(&input_event_kp);
+ }
++#endif // #ifndef CONFIG_KSU_SUSFS
+ 
+ static void stop_vfs_read_hook()
+ {
+-	bool ret = schedule_work(&stop_vfs_read_work);
+-	pr_info("unregister vfs_read kprobe: %d!\n", ret);
++#ifndef CONFIG_KSU_SUSFS
++    bool ret = schedule_work(&stop_vfs_read_work);
++    pr_info("unregister vfs_read kprobe: %d!\n", ret);
++#else
++    ksu_vfs_read_hook = false;
++    pr_info("stop vfs_read_hook\n");
++#endif // #ifndef CONFIG_KSU_SUSFS
+ }
+ 
+ static void stop_execve_hook()
+ {
+-	bool ret = schedule_work(&stop_execve_hook_work);
+-	pr_info("unregister execve kprobe: %d!\n", ret);
++#ifndef CONFIG_KSU_SUSFS
++    bool ret = schedule_work(&stop_execve_hook_work);
++    pr_info("unregister execve kprobe: %d!\n", ret);
++#else
++    ksu_execveat_hook = false;
++    pr_info("stop execve_hook\n");
++#endif // #ifndef CONFIG_KSU_SUSFS
+ }
+ 
+ static void stop_input_hook()
+ {
+-	static bool input_hook_stopped = false;
+-	if (input_hook_stopped) {
+-		return;
+-	}
+-	input_hook_stopped = true;
+-	bool ret = schedule_work(&stop_input_hook_work);
+-	pr_info("unregister input kprobe: %d!\n", ret);
++    static bool input_hook_stopped = false;
++    if (input_hook_stopped) {
++        return;
++    }
++    input_hook_stopped = true;
++#ifndef CONFIG_KSU_SUSFS
++    bool ret = schedule_work(&stop_input_hook_work);
++    pr_info("unregister input kprobe: %d!\n", ret);
++#else
++    ksu_input_hook = false;
++    pr_info("stop input_hook\n");
++#endif // #ifndef CONFIG_KSU_SUSFS
+ }
+ 
+ // ksud: module support

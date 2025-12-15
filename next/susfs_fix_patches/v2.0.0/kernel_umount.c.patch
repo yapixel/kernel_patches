@@ -1,0 +1,23 @@
+--- a/kernel/kernel_umount.c
++++ b/kernel/kernel_umount.c
+@@ -128,12 +128,14 @@
+ 	// when we umount for such process, that is a disaster!
+ 	// also handle case 4 and 5
+ 	bool is_zygote_child = is_zygote(get_current_cred());
+-	if (!is_zygote_child) {
+-		pr_info("handle umount ignore non zygote child: %d\n", current->pid);
+-		return 0;
+-	}
+-	// umount the target mnt
+-	pr_info("handle umount for uid: %d, pid: %d\n", new_uid, current->pid);
++    if (!is_zygote_child) {
++        pr_info("handle umount ignore non zygote child: %d\n", current->pid);
++        return 0;
++    }
++#endif // #ifndef CONFIG_KSU_SUSFS
++
++    // umount the target mnt
++    pr_info("handle umount for uid: %d, pid: %d\n", new_uid, current->pid);
+ 
+ 	tw = kzalloc(sizeof(*tw), GFP_ATOMIC);
+ 	if (!tw)
