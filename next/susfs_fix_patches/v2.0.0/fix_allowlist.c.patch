@@ -1,5 +1,5 @@
 diff --git a/kernel/allowlist.c b/kernel/allowlist.c
-index 7bda4210..8a5b7f65 100644
+index 32adb65..68f0e9a 100644
 --- a/kernel/allowlist.c
 +++ b/kernel/allowlist.c
 @@ -19,7 +19,9 @@
@@ -19,7 +19,7 @@ index 7bda4210..8a5b7f65 100644
 +#ifndef CONFIG_KSU_SUSFS
  		// FIXME: use a new flag
  		ksu_mark_running_process();
-+#endif // #ifndef CONFIG_KSU_SUSFS 
++#endif // #ifndef CONFIG_KSU_SUSFS
  	}
  
  	return result;

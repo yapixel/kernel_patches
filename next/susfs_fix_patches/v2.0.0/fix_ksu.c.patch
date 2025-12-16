@@ -1,8 +1,17 @@
 diff --git a/kernel/ksu.c b/kernel/ksu.c
-index 06074beb..c8939344 100644
+index 9693133..9f41944 100644
 --- a/kernel/ksu.c
 +++ b/kernel/ksu.c
-@@ -32,14 +32,19 @@ int __init kernelsu_init(void)
+@@ -15,6 +15,8 @@ 
+ #include "supercalls.h"
+ #include "ksu.h"
++#include "sucompat.h"
++#include "setuid_hook.h"
+ 
+ struct cred *ksu_cred;
+ 
+ int __init kernelsu_init(void)
+@@ -40,15 +40,21 @@ int __init kernelsu_init(void)
  	ksu_feature_init();
  
  	ksu_supercalls_init();
@@ -16,15 +25,18 @@ index 06074beb..c8939344 100644
  	ksu_throne_tracker_init();
 +#ifdef CONFIG_KSU_SUSFS
 +    susfs_init();
++    ksu_setuid_hook_init();
++    ksu_sucompat_init();
 +#endif // #ifdef CONFIG_KSU_SUSFS
  
 +#ifndef CONFIG_KSU_SUSFS
  	ksu_ksud_init();
+-
 +#endif // #ifndef CONFIG_KSU_SUSFS
- 
  #ifdef MODULE
  #ifndef CONFIG_KSU_DEBUG
-@@ -57,11 +62,11 @@ void kernelsu_exit(void)
+ 	kobject_del(&THIS_MODULE->mkobj.kobj);
+@@ -65,11 +69,15 @@ void kernelsu_exit(void)
  	ksu_throne_tracker_exit();
  
  	ksu_observer_exit();
@@ -37,4 +49,8 @@ index 06074beb..c8939344 100644
 +#endif // #ifndef CONFIG_KSU_SUSFS
  	ksu_supercalls_exit();
  
++#ifdef CONFIG_KSU_SUSFS
++    ksu_sucompat_exit();
++    ksu_setuid_hook_exit();
++#endif // #ifdef CONFIG_KSU_SUSFS
  	ksu_feature_exit();

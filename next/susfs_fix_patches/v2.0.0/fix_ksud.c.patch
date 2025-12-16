@@ -1,8 +1,8 @@
 diff --git a/kernel/ksud.c b/kernel/ksud.c
-index 1b7598fe..876e4534 100644
+index 0004e97..5b14880 100644
 --- a/kernel/ksud.c
 +++ b/kernel/ksud.c
-@@ -227,6 +227,14 @@ int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr,
+@@ -226,6 +226,14 @@ int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr,
  		return 0;
  	}
  
@@ -14,10 +14,10 @@ index 1b7598fe..876e4534 100644
 +    }
 +#endif // #ifdef CONFIG_KSU_SUSFS
 +
+ 	// https://cs.android.com/android/platform/superproject/+/android-16.0.0_r2:system/core/init/main.cpp;l=77
  	if (unlikely(!memcmp(filename->name, system_bin_init,
  				sizeof(system_bin_init) - 1) &&
- 			argv)) {
-@@ -354,6 +362,12 @@ static ssize_t read_iter_proxy(struct kiocb *iocb, struct iov_iter *to)
+@@ -302,6 +310,11 @@ static ssize_t read_iter_proxy(struct kiocb *iocb, struct iov_iter *to)
  static int ksu_handle_vfs_read(struct file **file_ptr, char __user **buf_ptr,
  				size_t *count_ptr, loff_t **pos)
  {
@@ -26,25 +26,25 @@ index 1b7598fe..876e4534 100644
 +        return 0;
 +    }
 +#endif // #ifdef CONFIG_KSU_SUSFS
-+
  	struct file *file;
  	char __user *buf;
  	size_t count;
-@@ -440,8 +454,13 @@ static int ksu_handle_vfs_read(struct file **file_ptr, char __user **buf_ptr,
+@@ -387,9 +400,13 @@ static int ksu_handle_vfs_read(struct file **file_ptr, char __user **buf_ptr,
+ 
  	return 0;
  }
- 
+-
 +#ifndef CONFIG_KSU_SUSFS
  static int ksu_handle_sys_read(unsigned int fd, char __user **buf_ptr,
  				size_t *count_ptr)
 +#else
 +int ksu_handle_sys_read(unsigned int fd, char __user **buf_ptr,
-+                               size_t *count_ptr)
++				size_t *count_ptr)
 +#endif // #ifndef CONFIG_KSU_SUSFS
  {
  	struct file *file = fget(fd);
  	if (!file) {
-@@ -462,6 +481,12 @@ static bool is_volumedown_enough(unsigned int count)
+@@ -410,6 +427,11 @@ static bool is_volumedown_enough(unsigned int count)
  int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code,
  					int *value)
  {
@@ -53,24 +53,23 @@ index 1b7598fe..876e4534 100644
 +        return 0;
 +    }
 +#endif // #ifdef CONFIG_KSU_SUSFS
-+
  	if (*type == EV_KEY && *code == KEY_VOLUMEDOWN) {
  		int val = *value;
  		pr_info("KEY_VOLUMEDOWN val: %d\n", val);
-@@ -582,17 +607,28 @@ static void do_stop_input_hook(struct work_struct *work)
+@@ -530,17 +552,27 @@ static void do_stop_input_hook(struct work_struct *work)
  {
  	unregister_kprobe(&input_event_kp);
  }
+-
 +#endif // #ifndef CONFIG_KSU_SUSFS
- 
  static void stop_vfs_read_hook()
  {
 +#ifndef CONFIG_KSU_SUSFS
  	bool ret = schedule_work(&stop_vfs_read_work);
  	pr_info("unregister vfs_read kprobe: %d!\n", ret);
 +#else
-+    ksu_vfs_read_hook = false;
-+    pr_info("stop vfs_read_hook\n");
++	ksu_vfs_read_hook = false;
++	pr_info("stop vfs_read_hook\n");
 +#endif // #ifndef CONFIG_KSU_SUSFS
  }
  
@@ -80,13 +79,13 @@ index 1b7598fe..876e4534 100644
  	bool ret = schedule_work(&stop_execve_hook_work);
  	pr_info("unregister execve kprobe: %d!\n", ret);
 +#else
-+    ksu_execveat_hook = false;
-+    pr_info("stop execve_hook\n");
++	ksu_execveat_hook = false;
++	pr_info("stop execve_hook\n");
 +#endif // #ifndef CONFIG_KSU_SUSFS
  }
  
  static void stop_input_hook()
-@@ -602,13 +638,19 @@ static void stop_input_hook()
+@@ -550,13 +582,19 @@ static void stop_input_hook()
  		return;
  	}
  	input_hook_stopped = true;
@@ -94,8 +93,8 @@ index 1b7598fe..876e4534 100644
  	bool ret = schedule_work(&stop_input_hook_work);
  	pr_info("unregister input kprobe: %d!\n", ret);
 +#else
-+    ksu_input_hook = false;
-+    pr_info("stop input_hook\n");
++	ksu_input_hook = false;
++	pr_info("stop input_hook\n");
 +#endif // #ifndef CONFIG_KSU_SUSFS
  }
  
@@ -106,7 +105,7 @@ index 1b7598fe..876e4534 100644
  	int ret;
  
  	ret = register_kprobe(&execve_kp);
-@@ -623,12 +665,15 @@ void ksu_ksud_init()
+@@ -571,12 +609,15 @@ void ksu_ksud_init()
  	INIT_WORK(&stop_vfs_read_work, do_stop_vfs_read_hook);
  	INIT_WORK(&stop_execve_hook_work, do_stop_execve_hook);
  	INIT_WORK(&stop_input_hook_work, do_stop_input_hook);
