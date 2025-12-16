@@ -1,5 +1,5 @@
---- a/allowlist.c
-+++ b/allowlist.c
+--- a/kernel/allowlist.c
++++ b/kernel/allowlist.c
 @@ -262,8 +262,10 @@
  
  	if (persist) {

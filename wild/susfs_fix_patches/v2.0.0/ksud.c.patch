@@ -1,5 +1,5 @@
---- a/ksud.c
-+++ b/ksud.c
+--- a/kernel/ksud.c
++++ b/kernel/ksud.c
 @@ -226,6 +226,10 @@
  		return 0;
  	}

@@ -1,5 +1,5 @@
---- a/selinux/selinux.c
-+++ b/selinux/selinux.c
+--- a/kernel/selinux/selinux.c
++++ b/kernel/selinux/selinux.c
 @@ -162,4 +162,95 @@
          pr_info("get ksufile sid err %d\n", err);
      }

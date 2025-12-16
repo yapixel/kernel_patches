@@ -1,5 +1,5 @@
---- a/Kbuild
-+++ b/Kbuild
+--- a/kernel/Kbuild
++++ b/kernel/Kbuild
 @@ -85,4 +85,14 @@
  ccflags-y += -Wno-strict-prototypes -Wno-int-conversion -Wno-gcc-compat -Wno-missing-prototypes
  ccflags-y += -Wno-declaration-after-statement -Wno-unused-function

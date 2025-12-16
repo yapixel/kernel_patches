@@ -1,5 +1,5 @@
---- a/supercalls.c
-+++ b/supercalls.c
+--- a/kernel/supercalls.c
++++ b/kernel/supercalls.c
 @@ -119,6 +119,9 @@
  			boot_complete_lock = true;
  			pr_info("boot_complete triggered\n");

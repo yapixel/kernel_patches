@@ -1,5 +1,5 @@
---- a/sucompat.c
-+++ b/sucompat.c
+--- a/kernel/sucompat.c
++++ b/kernel/sucompat.c
 @@ -75,6 +75,7 @@
  	return userspace_stack_buffer(ksud_path, sizeof(ksud_path));
  }
