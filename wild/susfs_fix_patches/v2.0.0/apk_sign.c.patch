@@ -1,5 +1,5 @@
---- a/kernel/apk_sign.c
-+++ b/kernel/apk_sign.c
+--- a/apk_sign.c
++++ b/apk_sign.c
 @@ -308,5 +308,10 @@
  
  bool is_manager_apk(char *path)

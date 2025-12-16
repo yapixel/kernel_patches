@@ -1,5 +1,5 @@
---- a/kernel/ksu.c
-+++ b/kernel/ksu.c
+--- a/ksu.c
++++ b/ksu.c
 @@ -41,13 +41,21 @@
  
  	ksu_supercalls_init();

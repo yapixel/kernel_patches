@@ -1,14 +1,5 @@
---- a/kernel/sucompat.c
-+++ b/kernel/sucompat.c
-@@ -29,7 +29,7 @@
- #define SU_PATH "/system/bin/su"
- #define SH_PATH "/system/bin/sh"
- 
--bool ksu_su_compat_enabled __read_mostly = true;
-+bool ksu_su_compat_enabled __read_mostly = false;
- 
- static int su_compat_feature_get(u64 *value)
- {
+--- a/sucompat.c
++++ b/sucompat.c
 @@ -75,6 +75,7 @@
  	return userspace_stack_buffer(ksud_path, sizeof(ksud_path));
  }

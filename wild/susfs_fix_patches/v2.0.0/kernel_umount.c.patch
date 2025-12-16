@@ -1,5 +1,5 @@
---- a/kernel/kernel_umount.c
-+++ b/kernel/kernel_umount.c
+--- a/kernel_umount.c
++++ b/kernel_umount.c
 @@ -132,6 +132,8 @@
  		pr_info("handle umount ignore non zygote child: %d\n", current->pid);
  		return 0;
