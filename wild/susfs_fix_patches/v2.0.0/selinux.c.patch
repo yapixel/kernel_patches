@@ -21,7 +21,7 @@
 +static inline void susfs_set_sid(const char *secctx_name, u32 *out_sid)
 +{
 +    int err;
-+    
++
 +    if (!secctx_name || !out_sid) {
 +        pr_err("secctx_name || out_sid is NULL\n");
 +        return;
@@ -48,7 +48,7 @@
 +{
 +    u32 out_sid = 0;
 +    int err;
-+    
++
 +    if (!secctx_name) {
 +        pr_err("secctx_name is NULL\n");
 +        return 0;
@@ -98,4 +98,3 @@
 +    susfs_set_sid(KERNEL_PRIV_APP_DOMAIN, &susfs_priv_app_sid);
 +}
 +#endif // #ifdef CONFIG_KSU_SUSFS
-\ No newline at end of file
