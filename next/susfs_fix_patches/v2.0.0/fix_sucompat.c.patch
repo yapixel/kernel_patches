@@ -15,7 +15,7 @@ index 4e5db58..998212a 100644
      if (likely(memcmp(filename->name, su_path, sizeof(su_path))))
          return 0;
  
-+	 write_sulog('x');
++	write_sulog('x');
      pr_info("ksu_handle_execveat_sucompat: su found\n");
      memcpy((void *)filename->name, ksud_path, sizeof(ksud_path));
  

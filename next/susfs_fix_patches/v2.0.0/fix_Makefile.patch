@@ -1,10 +1,10 @@
-diff --git a/kernel/Makefile b/kernel/Makefile
-index b8ec6d8..c59e124 100644
---- a/kernel/Makefile
-+++ b/kernel/Makefile
-@@ -19,4 +19,13 @@ check_symbol: tools/check_symbol.c
- format:
- 	find . -name "*.c" -o -name "*.h" -print0 | xargs -0 clang-format -i
+diff --git a/kernel/Kbuild b/kernel/Kbuild
+index 2562d36..71aed6f 100644
+--- a/kernel/Kbuild
++++ b/kernel/Kbuild
+@@ -88,4 +88,14 @@ ccflags-y += -DEXPECTED_MANAGER_HASH=\"$(KSU_NEXT_MANAGER_HASH)\"
+ ccflags-y += -Wno-strict-prototypes -Wno-int-conversion -Wno-gcc-compat -Wno-missing-prototypes
+ ccflags-y += -Wno-declaration-after-statement -Wno-unused-function
  
 +## For susfs stuff ##
 +ifeq ($(shell test -e $(srctree)/fs/susfs.c; echo $$?),0)
@@ -15,5 +15,5 @@ index b8ec6d8..c59e124 100644
 +$(info -- You have not integrated susfs in your kernel yet.)
 +$(info -- Read: https://gitlab.com/simonpunk/susfs4ksu)
 +endif
++
  # Keep a new line here!! Because someone may append config
-\ No newline at end of file
