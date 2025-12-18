@@ -1,8 +1,18 @@
 diff --git a/kernel/allowlist.c b/kernel/allowlist.c
-index 11066f6..266865e 100644
+index 32adb65..68f0e9a 100644
 --- a/kernel/allowlist.c
 +++ b/kernel/allowlist.c
-@@ -263,8 +263,10 @@ out:
+@@ -19,7 +19,9 @@
+ #include "selinux/selinux.h"
+ #include "allowlist.h"
+ #include "manager.h"
++#ifndef CONFIG_KSU_SUSFS
+ #include "syscall_hook_manager.h"
++#endif // #ifndef CONFIG_KSU_SUSFS
+ 
+ #define FILE_MAGIC 0x7f4b5355 // ' KSU', u32
+ #define FILE_FORMAT_VERSION 3 // u32
+@@ -260,8 +262,10 @@ out:
  
  	if (persist) {
  		persistent_allow_list();

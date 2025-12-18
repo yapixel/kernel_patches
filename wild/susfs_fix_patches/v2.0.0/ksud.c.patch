@@ -1,39 +1,34 @@
-diff --git a/kernel/ksud.c b/kernel/ksud.c
-index 0004e97..5b14880 100644
 --- a/kernel/ksud.c
 +++ b/kernel/ksud.c
-@@ -226,6 +226,14 @@ int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr,
+@@ -226,6 +226,12 @@
  		return 0;
  	}
  
 +#ifdef CONFIG_KSU_SUSFS
-+    if (!ksu_handle_execveat_init(filename)) {
-+        // - return non-zero here if ksu_handle_execveat_init() return success
-+        //   as we don't want it to execute ksu_handle_execveat_sucompat()
-+        return 1;
-+    }
++	if (!ksu_handle_execveat_init(filename)) {
++		return 1;
++	}
 +#endif // #ifdef CONFIG_KSU_SUSFS
 +
  	// https://cs.android.com/android/platform/superproject/+/android-16.0.0_r2:system/core/init/main.cpp;l=77
  	if (unlikely(!memcmp(filename->name, system_bin_init,
  				sizeof(system_bin_init) - 1) &&
-@@ -302,6 +310,11 @@ static ssize_t read_iter_proxy(struct kiocb *iocb, struct iov_iter *to)
+@@ -302,6 +308,11 @@
  static int ksu_handle_vfs_read(struct file **file_ptr, char __user **buf_ptr,
  				size_t *count_ptr, loff_t **pos)
  {
 +#ifdef CONFIG_KSU_SUSFS
-+    if (!ksu_vfs_read_hook) {
-+        return 0;
-+    }
++	if (!ksu_vfs_read_hook) {
++		return 0;
++	}
 +#endif // #ifdef CONFIG_KSU_SUSFS
  	struct file *file;
  	char __user *buf;
  	size_t count;
-@@ -387,9 +400,13 @@ static int ksu_handle_vfs_read(struct file **file_ptr, char __user **buf_ptr,
- 
+@@ -388,8 +399,13 @@
  	return 0;
  }
--
+ 
 +#ifndef CONFIG_KSU_SUSFS
  static int ksu_handle_sys_read(unsigned int fd, char __user **buf_ptr,
  				size_t *count_ptr)
@@ -44,24 +39,32 @@ index 0004e97..5b14880 100644
  {
  	struct file *file = fget(fd);
  	if (!file) {
-@@ -410,6 +427,11 @@ static bool is_volumedown_enough(unsigned int count)
+@@ -410,6 +426,11 @@
  int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code,
  					int *value)
  {
 +#ifdef CONFIG_KSU_SUSFS
-+    if (!ksu_input_hook) {
-+        return 0;
-+    }
++	if (!ksu_input_hook) {
++		return 0;
++	}
 +#endif // #ifdef CONFIG_KSU_SUSFS
  	if (*type == EV_KEY && *code == KEY_VOLUMEDOWN) {
  		int val = *value;
  		pr_info("KEY_VOLUMEDOWN val: %d\n", val);
-@@ -530,17 +552,27 @@ static void do_stop_input_hook(struct work_struct *work)
+@@ -516,6 +537,7 @@
+ 	.pre_handler = input_handle_event_handler_pre,
+ };
+ 
++#ifndef CONFIG_KSU_SUSFS
+ static void do_stop_vfs_read_hook(struct work_struct *work)
+ {
+ 	unregister_kprobe(&vfs_read_kp);
+@@ -530,17 +552,28 @@
  {
  	unregister_kprobe(&input_event_kp);
  }
--
 +#endif // #ifndef CONFIG_KSU_SUSFS
+ 
  static void stop_vfs_read_hook()
  {
 +#ifndef CONFIG_KSU_SUSFS
@@ -85,7 +88,7 @@ index 0004e97..5b14880 100644
  }
  
  static void stop_input_hook()
-@@ -550,13 +582,19 @@ static void stop_input_hook()
+@@ -550,13 +583,19 @@
  		return;
  	}
  	input_hook_stopped = true;
@@ -105,7 +108,7 @@ index 0004e97..5b14880 100644
  	int ret;
  
  	ret = register_kprobe(&execve_kp);
-@@ -571,12 +609,15 @@ void ksu_ksud_init()
+@@ -571,12 +610,15 @@
  	INIT_WORK(&stop_vfs_read_work, do_stop_vfs_read_hook);
  	INIT_WORK(&stop_execve_hook_work, do_stop_execve_hook);
  	INIT_WORK(&stop_input_hook_work, do_stop_input_hook);
