@@ -1,8 +1,6 @@
-diff --git a/kernel/allowlist.c b/kernel/allowlist.c
-index 11066f6..266865e 100644
 --- a/kernel/allowlist.c
 +++ b/kernel/allowlist.c
-@@ -263,8 +263,10 @@ out:
+@@ -262,8 +262,10 @@
  
  	if (persist) {
  		persistent_allow_list();

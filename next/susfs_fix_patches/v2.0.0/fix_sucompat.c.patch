@@ -15,15 +15,15 @@ index 4e5db58..998212a 100644
      if (likely(memcmp(filename->name, su_path, sizeof(su_path))))
          return 0;
  
-+	 write_sulog('x');
      pr_info("ksu_handle_execveat_sucompat: su found\n");
++	 write_sulog('x');
      memcpy((void *)filename->name, ksud_path, sizeof(ksud_path));
  
 @@ -245,6 +246,7 @@ int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
      strncpy_from_user_nofault(path, *filename_user, sizeof(path));
  
      if (unlikely(!memcmp(path, su_path, sizeof(su_path)))) {
-+		write_sulog('a');
++		 write_sulog('a');
          pr_info("ksu_handle_faccessat: su->sh!\n");
          *filename_user = sh_user_path();
      }
@@ -31,15 +31,15 @@ index 4e5db58..998212a 100644
          return 0;
      }
  
-+	write_sulog('s');
      pr_info("ksu_handle_stat: su->sh!\n");
++	 write_sulog('s');
      memcpy((void *)((*filename)->name), sh_path, sizeof(sh_path));
      return 0;
 @@ -280,6 +283,7 @@ int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
      strncpy_from_user_nofault(path, *filename_user, sizeof(path));
  
      if (unlikely(!memcmp(path, su_path, sizeof(su_path)))) {
-+		write_sulog('s');
++		 write_sulog('s');
          pr_info("ksu_handle_stat: su->sh!\n");
          *filename_user = sh_user_path();
      }

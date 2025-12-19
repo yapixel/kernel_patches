@@ -1,8 +1,6 @@
-diff --git a/kernel/selinux/selinux.c b/kernel/selinux/selinux.c
-index 9dc950d..3836c23 100644
 --- a/kernel/selinux/selinux.c
 +++ b/kernel/selinux/selinux.c
-@@ -163,4 +163,95 @@ u32 ksu_get_ksu_file_sid()
+@@ -162,4 +162,95 @@
          pr_info("get ksufile sid err %d\n", err);
      }
      return ksu_file_sid;
@@ -23,7 +21,7 @@ index 9dc950d..3836c23 100644
 +static inline void susfs_set_sid(const char *secctx_name, u32 *out_sid)
 +{
 +    int err;
-+    
++
 +    if (!secctx_name || !out_sid) {
 +        pr_err("secctx_name || out_sid is NULL\n");
 +        return;
@@ -50,7 +48,7 @@ index 9dc950d..3836c23 100644
 +{
 +    u32 out_sid = 0;
 +    int err;
-+    
++
 +    if (!secctx_name) {
 +        pr_err("secctx_name is NULL\n");
 +        return 0;
@@ -100,4 +98,3 @@ index 9dc950d..3836c23 100644
 +    susfs_set_sid(KERNEL_PRIV_APP_DOMAIN, &susfs_priv_app_sid);
 +}
 +#endif // #ifdef CONFIG_KSU_SUSFS
-\ No newline at end of file
