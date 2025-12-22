@@ -1,8 +1,8 @@
 diff --git a/kernel/ksu.c b/kernel/ksu.c
-index 02864fd..cc72b22 100644
+index c1aa6f20..f4f4544b 100644
 --- a/kernel/ksu.c
 +++ b/kernel/ksu.c
-@@ -43,15 +43,21 @@ int __init kernelsu_init(void)
+@@ -44,15 +44,22 @@ int __init kernelsu_init(void)
  	ksu_feature_init();
  
  	ksu_supercalls_init();
@@ -17,17 +17,18 @@ index 02864fd..cc72b22 100644
  	ksu_allowlist_init();
  
  	ksu_throne_tracker_init();
- 
 +#ifdef CONFIG_KSU_SUSFS
 +	susfs_init();
-+#else
++#endif // #ifdef CONFIG_KSU_SUSFS
+ 
++#ifndef CONFIG_KSU_SUSFS
  	ksu_ksud_init();
 -
-+#endif // #ifdef CONFIG_KSU_SUSFS
++#endif // #ifndef CONFIG_KSU_SUSFS
+     ksu_file_wrapper_init();
+ 
  #ifdef MODULE
- #ifndef CONFIG_KSU_DEBUG
- 	kobject_del(&THIS_MODULE->mkobj.kobj);
-@@ -68,11 +75,11 @@ void kernelsu_exit(void)
+@@ -71,11 +78,11 @@ void kernelsu_exit(void)
  	ksu_throne_tracker_exit();
  
  	ksu_observer_exit();
