@@ -1,8 +1,8 @@
 diff --git a/kernel/Kbuild b/kernel/Kbuild
-index 8899c968..950cf0a8 100644
+index 8899c968..71aed6f8 100644
 --- a/kernel/Kbuild
 +++ b/kernel/Kbuild
-@@ -3,12 +3,10 @@ kernelsu-objs += allowlist.o
+@@ -3,7 +3,6 @@ kernelsu-objs += allowlist.o
  kernelsu-objs += app_profile.o
  kernelsu-objs += apk_sign.o
  kernelsu-objs += sucompat.o
@@ -10,12 +10,7 @@ index 8899c968..950cf0a8 100644
  kernelsu-objs += throne_tracker.o
  kernelsu-objs += pkg_observer.o
  kernelsu-objs += setuid_hook.o
- kernelsu-objs += kernel_umount.o
--kernelsu-objs += supercalls.o
- kernelsu-objs += su_mount_ns.o
- kernelsu-objs += feature.o
- kernelsu-objs += ksud.o
-@@ -89,4 +87,14 @@ ccflags-y += -DEXPECTED_MANAGER_HASH=\"$(KSU_NEXT_MANAGER_HASH)\"
+@@ -89,4 +88,14 @@ ccflags-y += -DEXPECTED_MANAGER_HASH=\"$(KSU_NEXT_MANAGER_HASH)\"
  ccflags-y += -Wno-strict-prototypes -Wno-int-conversion -Wno-gcc-compat -Wno-missing-prototypes
  ccflags-y += -Wno-declaration-after-statement -Wno-unused-function
  
@@ -813,7 +808,7 @@ index ea1922fe..f6f1954e 100644
  void ksu_setuid_hook_init(void)
  {
 diff --git a/kernel/sucompat.c b/kernel/sucompat.c
-index 00165d3e..4ca45e4b 100644
+index 00165d3e..a8bdebaf 100644
 --- a/kernel/sucompat.c
 +++ b/kernel/sucompat.c
 @@ -11,6 +11,12 @@
@@ -837,7 +832,7 @@ index 00165d3e..4ca45e4b 100644
  int ksu_handle_faccessat(int *dfd, const char __user **filename_user,
  		int *mode, int *__unused_flags)
  {
-@@ -170,6 +177,143 @@ int ksu_handle_execve_sucompat(const char __user **filename_user,
+@@ -170,6 +177,147 @@ int ksu_handle_execve_sucompat(const char __user **filename_user,
  
  	return 0;
  }
@@ -885,6 +880,7 @@ index 00165d3e..4ca45e4b 100644
 +        return 0;
 +
 +    pr_info("ksu_handle_execveat_sucompat: su found\n");
++    write_sulog('x');
 +    memcpy((void *)filename->name, ksud_path, sizeof(ksud_path));
 +
 +    escape_with_root_profile();
@@ -911,6 +907,7 @@ index 00165d3e..4ca45e4b 100644
 +
 +    if (unlikely(!memcmp(path, su_path, sizeof(su_path)))) {
 +        pr_info("ksu_handle_faccessat: su->sh!\n");
++        write_sulog('a');
 +        *filename_user = sh_user_path();
 +    }
 +
@@ -930,6 +927,7 @@ index 00165d3e..4ca45e4b 100644
 +    }
 +
 +    pr_info("ksu_handle_stat: su->sh!\n");
++    write_sulog('s');
 +    memcpy((void *)((*filename)->name), sh_path, sizeof(sh_path));
 +    return 0;
 +}
@@ -946,6 +944,7 @@ index 00165d3e..4ca45e4b 100644
 +
 +    if (unlikely(!memcmp(path, su_path, sizeof(su_path)))) {
 +        pr_info("ksu_handle_stat: su->sh!\n");
++        write_sulog('s');
 +        *filename_user = sh_user_path();
 +    }
 +
@@ -998,7 +997,7 @@ index b60cbde0..1a4ee879 100644
                                 void *__never_use_argv, void *__never_use_envp,
                                 int *__never_use_flags);
 diff --git a/kernel/supercalls.c b/kernel/supercalls.c
-index 01e13912..7ce855aa 100644
+index 01e13912..b4ca98f7 100644
 --- a/kernel/supercalls.c
 +++ b/kernel/supercalls.c
 @@ -11,6 +11,10 @@
@@ -1101,7 +1100,72 @@ index 01e13912..7ce855aa 100644
  		break;
  	}
  	default: {
-@@ -691,6 +731,7 @@ static void ksu_install_fd_tw_func(struct callback_head *cb)
+@@ -420,7 +460,7 @@ static int do_get_hook_mode(void __user *arg)
+ {
+ 	struct ksu_get_hook_mode_cmd cmd = {0};
+ 
+-	strscpy(cmd.mode, "Kprobes", sizeof(cmd.mode));
++	strscpy(cmd.mode, "Inline (SuSFS)", sizeof(cmd.mode));
+ 
+ 	if (copy_to_user(arg, &cmd, sizeof(cmd))) {
+ 		pr_err("get_hook_mode: copy_to_user failed\n");
+@@ -572,6 +612,55 @@ static int add_try_umount(void __user *arg)
+         return 0;
+     }
+ 
++		// this way userspace can deduce the memory it has to prepare.
++		case KSU_UMOUNT_GETSIZE: {
++			// check for pointer first
++			if (!cmd.arg)
++				return -EFAULT;
++		
++			size_t total_size = 0; // size of list in bytes
++
++			down_read(&mount_list_lock);
++			list_for_each_entry(entry, &mount_list, list) {
++				total_size = total_size + strlen(entry->umountable) + 1; // + 1 for \0
++			}
++			up_read(&mount_list_lock);
++
++			pr_info("cmd_add_try_umount: total_size: %zu\n", total_size);
++			
++			if (copy_to_user((size_t __user *)cmd.arg, &total_size, sizeof(total_size)))
++				return -EFAULT;
++
++			return 0;
++		}
++		
++		// WARNING! this is straight up pointerwalking.
++		// this way we dont need to redefine the ioctl defs.
++		// this also avoids us needing to kmalloc
++		// userspace have to send pointer to memory (malloc/alloca) or pointer to a VLA.
++		case KSU_UMOUNT_GETLIST: {
++			if (!cmd.arg)
++				return -EFAULT;
++			
++			void *user_buf = (void *)cmd.arg;
++
++			down_read(&mount_list_lock);
++			list_for_each_entry(entry, &mount_list, list) {
++				pr_info("cmd_add_try_umount: entry: %s\n", entry->umountable);
++			
++				if (copy_to_user(user_buf, entry->umountable, strlen(entry->umountable) + 1 )) {
++					up_read(&mount_list_lock);
++					return -EFAULT;
++				}
++				
++				// walk it! +1 for null terminator
++				user_buf = user_buf + strlen(entry->umountable) + 1;
++			}
++			up_read(&mount_list_lock);
++
++			return 0;
++		}
++
+     default: {
+         pr_err("cmd_add_try_umount: invalid operation %u\n", cmd.mode);
+         return -EINVAL;
+@@ -691,6 +780,7 @@ static void ksu_install_fd_tw_func(struct callback_head *cb)
  	kfree(tw);
  }
  
@@ -1109,7 +1173,7 @@ index 01e13912..7ce855aa 100644
  static int reboot_handler_pre(struct kprobe *p, struct pt_regs *regs)
  {
  	struct pt_regs *real_regs = PT_REAL_REGS(regs);
-@@ -748,6 +789,121 @@ static struct kprobe reboot_kp = {
+@@ -748,28 +838,183 @@ static struct kprobe reboot_kp = {
  	.symbol_name = REBOOT_SYMBOL,
  	.pre_handler = reboot_handler_pre,
  };
@@ -1225,13 +1289,50 @@ index 01e13912..7ce855aa 100644
 +            pr_warn("install fd add task_work failed\n");
 +        }
 +    }
++
++	if (magic2 == CHANGE_MANAGER_UID) {
++		/* only root is allowed for this command */
++		if (current_uid().val != 0)
++			return 0;
++
++		pr_info("ksu_handle_sys_reboot: ksu_set_manager_appid to: %d\n", cmd);
++		ksu_set_manager_appid(cmd);
++
++		if (cmd == ksu_get_manager_appid()) {
++			unsigned long reply = (unsigned long)*arg;
++			if (copy_to_user((void __user *)*arg, &reply, sizeof(reply)))
++				pr_info("ksu_handle_sys_reboot: reply fail\n");
++		}
++
++		return 0;
++	}
++
++    if (magic2 == GET_SULOG_DUMP_V2) {
++        // only root is allowed for this command
++        if (current_uid().val != 0)
++            return 0;
++
++        int ret = send_sulog_dump(*arg);
++            if (ret)
++                return 0;
++        unsigned long reply = (unsigned long)*arg;
++        if (copy_to_user((void __user *)*arg, &reply, sizeof(reply) ))
++            return 0;
++    }
++
 +    return 0;
 +}
 +#endif // #ifndef CONFIG_KSU_SUSFS
  
  void ksu_supercalls_init(void)
  {
-@@ -759,17 +915,23 @@ void ksu_supercalls_init(void)
+ 	int i;
+ 
++    sulog_init_heap(); // grab heap memory
++
+     pr_info("KernelSU IOCTL Commands:\n");
+     for (i = 0; ksu_ioctl_handlers[i].handler; i++) {
+         pr_info("  %-18s = 0x%08x\n", ksu_ioctl_handlers[i].name,
                  ksu_ioctl_handlers[i].cmd);
      }
  
@@ -1243,6 +1344,7 @@ index 01e13912..7ce855aa 100644
  		pr_info("reboot kprobe registered successfully\n");
  	}
 +#endif // #ifndef CONFIG_KSU_SUSFS
++    sulog_init_heap(); // grab heap memory
  }
  
  void ksu_supercalls_exit(void)
@@ -1255,3 +1357,125 @@ index 01e13912..7ce855aa 100644
  }
  
  // IOCTL dispatcher
+diff --git a/kernel/supercalls.h b/kernel/supercalls.h
+index 2256242d..2f6c88e8 100644
+--- a/kernel/supercalls.h
++++ b/kernel/supercalls.h
+@@ -12,6 +12,9 @@
+ // Toolkit extensions
+ #define CHANGE_MANAGER_UID 10006
+ #define GET_SULOG_DUMP 10009
++#define GET_SULOG_DUMP_V2 10010     // get sulog dump, max, last 250 escalations
++#define KSU_UMOUNT_GETSIZE 107   // get list size // shit is u8 we cant fit 10k+ on it
++#define KSU_UMOUNT_GETLIST 108   // get list
+ 
+ // Command structures for ioctl
+ 
+diff --git a/kernel/tiny_sulog.c b/kernel/tiny_sulog.c
+index 9d3cbdff..aa0bc78a 100644
+--- a/kernel/tiny_sulog.c
++++ b/kernel/tiny_sulog.c
+@@ -1,30 +1,39 @@
+ // half assed ringbuffer
+-// 5 bytes
++// 8 bytes
+ struct sulog_entry {
+-	uint8_t symbol;
+-	uint32_t uid; // mebbe u16?
++	uint32_t s_time; // uptime in seconds
++	uint32_t data; // uint8_t[0,1,2] = uid, basically uint24_t, uint8_t[3] = symbol
+ } __attribute__((packed));
+ 
+-#define SULOG_ENTRY_MAX 100
++#define SULOG_ENTRY_MAX 250
+ #define SULOG_BUFSIZ SULOG_ENTRY_MAX * (sizeof (struct sulog_entry))
+ 
+-char sulog_buf[SULOG_BUFSIZ] = {0};
+-static void *sulog_buf_ptr = (void *)sulog_buf;
++static void *sulog_buf_ptr = NULL;
+ static uint8_t sulog_index_next = 0;
+ 
+ static DEFINE_SPINLOCK(sulog_lock);
+ 
++void sulog_init_heap()
++{
++	sulog_buf_ptr = kzalloc(SULOG_BUFSIZ, GFP_KERNEL);
++	if (!sulog_buf_ptr)
++		return;
++	
++	pr_info("sulog_init: allocated %lu bytes on 0x%p \n", SULOG_BUFSIZ, sulog_buf_ptr);
++}
++
+ void write_sulog(uint8_t sym)
+ {
+-	unsigned int offset = sulog_index_next * sizeof(struct sulog_entry);
++	if (!sulog_buf_ptr)
++		return;
+ 
++	unsigned int offset = sulog_index_next * sizeof(struct sulog_entry);
+ 	struct sulog_entry entry = {0};
+-	entry.symbol = sym;
+-	entry.uid = (uint32_t)current_uid().val;
+ 
+-	// pr_info("%s: symbol: %c uid: %d index: %d\n", __func__, entry.symbol, entry.uid, sulog_index_next);
+-
+-	// pr_info("%s: addr: 0x%llx \n", __func__, (uintptr_t)(sulog_buf_ptr + offset));
++	// WARNING!!! this is LE only!
++	entry.s_time = (uint32_t)(ktime_get_boottime() / 1000000000);
++	entry.data = (uint32_t)current_uid().val;
++	*((char *)&entry.data + 3) = sym;
+ 
+ 	spin_lock(&sulog_lock);
+ 	memcpy(sulog_buf_ptr + offset, &entry, sizeof(entry));
+@@ -38,31 +47,40 @@ void write_sulog(uint8_t sym)
+ }
+ 
+ struct sulog_entry_rcv_ptr {
+-	uint64_t int_ptr; // send index here
++	uint64_t index_ptr; // send index here
+ 	uint64_t buf_ptr; // send buf here
++	uint64_t uptime_ptr; // uptime
+ };
+ 
+-void send_sulog_dump(void __user *uptr)
++int send_sulog_dump(void __user *uptr)
+ {
++	if (!sulog_buf_ptr)
++		return 1;
++
+ 	struct sulog_entry_rcv_ptr sbuf = {0};
+ 
+ 	if (copy_from_user(&sbuf, uptr, sizeof(sbuf) ))
+-		return;
++		return 1;
+ 
+-	if (!sbuf.int_ptr)
+-		return;
++	if (!sbuf.index_ptr || !sbuf.buf_ptr || !sbuf.uptime_ptr )
++		return 1;
+ 
+-	if (!sbuf.buf_ptr)
+-		return;
++	// send uptime
++	uint32_t uptime = (uint32_t)(ktime_get_boottime() / 1000000000);
++	if (copy_to_user((void __user *)sbuf.uptime_ptr, &uptime, sizeof(uptime) ))
++		return 1;
+ 
+-	if (copy_to_user((void __user *)sbuf.int_ptr, &sulog_index_next, sizeof(sulog_index_next) ))
+-		return;
++	// send index
++	if (copy_to_user((void __user *)sbuf.index_ptr, &sulog_index_next, sizeof(sulog_index_next) ))
++		return 1;
+ 
++	// send buffer data
+ 	spin_lock(&sulog_lock);
+-	if (copy_to_user((void __user *)sbuf.buf_ptr, &sulog_buf, sizeof(sulog_buf) )) {
++	if (copy_to_user((void __user *)sbuf.buf_ptr, sulog_buf_ptr, SULOG_BUFSIZ )) {
+ 		spin_unlock(&sulog_lock);
+-		return;
++		return 1;
+ 	}
+ 	spin_unlock(&sulog_lock);
+ 
++	return 0;
+ }
