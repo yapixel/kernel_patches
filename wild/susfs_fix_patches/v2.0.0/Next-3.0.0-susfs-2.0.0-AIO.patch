@@ -257,7 +257,7 @@ index 2087e671..6bfc7337 100644
  	pr_info("handle umount for uid: %d, pid: %d\n", new_uid, current->pid);
  
 diff --git a/kernel/ksu.c b/kernel/ksu.c
-index e121ab45..12ce339c 100644
+index e121ab45..0bbf9924 100644
 --- a/kernel/ksu.c
 +++ b/kernel/ksu.c
 @@ -3,12 +3,20 @@
@@ -281,20 +281,18 @@ index e121ab45..12ce339c 100644
  #include "ksud.h"
  #include "supercalls.h"
  #include "ksu.h"
-@@ -35,7 +43,12 @@ int __init kernelsu_init(void)
+@@ -37,13 +45,24 @@ int __init kernelsu_init(void)
  
- 	ksu_feature_init();
+ 	ksu_supercalls_init();
  
 +#ifndef CONFIG_KSU_SUSFS
- 	ksu_supercalls_init();
+ 	ksu_syscall_hook_manager_init();
 +#else
 +    ksu_setuid_hook_init();
 +    ksu_sucompat_init();
 +#endif // #ifndef CONFIG_KSU_SUSFS
  
- 	ksu_syscall_hook_manager_init();
- 
-@@ -43,7 +56,13 @@ int __init kernelsu_init(void)
+ 	ksu_allowlist_init();
  
  	ksu_throne_tracker_init();
  
