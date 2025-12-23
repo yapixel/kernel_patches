@@ -1,5 +1,5 @@
 diff --git a/kernel/sucompat.c b/kernel/sucompat.c
-index 4e5db58..998212a 100644
+index 4e5db588..53967ce9 100644
 --- a/kernel/sucompat.c
 +++ b/kernel/sucompat.c
 @@ -76,7 +76,7 @@ static char __user *ksud_user_path(void)
@@ -11,35 +11,3 @@ index 4e5db58..998212a 100644
  int ksu_handle_faccessat(int *dfd, const char __user **filename_user,
  		int *mode, int *__unused_flags)
  {
-@@ -219,6 +219,7 @@ int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
-     if (likely(memcmp(filename->name, su_path, sizeof(su_path))))
-         return 0;
- 
-     pr_info("ksu_handle_execveat_sucompat: su found\n");
-+	 write_sulog('x');
-     memcpy((void *)filename->name, ksud_path, sizeof(ksud_path));
- 
-@@ -245,6 +246,7 @@ int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
-     strncpy_from_user_nofault(path, *filename_user, sizeof(path));
- 
-     if (unlikely(!memcmp(path, su_path, sizeof(su_path)))) {
-+		 write_sulog('a');
-         pr_info("ksu_handle_faccessat: su->sh!\n");
-         *filename_user = sh_user_path();
-     }
-@@ -264,6 +266,7 @@ int ksu_handle_stat(int *dfd, struct filename **filename, int *flags) {
-         return 0;
-     }
- 
-     pr_info("ksu_handle_stat: su->sh!\n");
-+	 write_sulog('s');
-     memcpy((void *)((*filename)->name), sh_path, sizeof(sh_path));
-     return 0;
-@@ -280,6 +283,7 @@ int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
-     strncpy_from_user_nofault(path, *filename_user, sizeof(path));
- 
-     if (unlikely(!memcmp(path, su_path, sizeof(su_path)))) {
-+		 write_sulog('s');
-         pr_info("ksu_handle_stat: su->sh!\n");
-         *filename_user = sh_user_path();
-     }
