@@ -314,7 +314,7 @@ index e121ab45..0bbf9924 100644
  	ksu_supercalls_exit();
  
 diff --git a/kernel/ksud.c b/kernel/ksud.c
-index fb6cb58d..8dad376c 100644
+index fb6cb58d..ba7ecee7 100644
 --- a/kernel/ksud.c
 +++ b/kernel/ksud.c
 @@ -57,9 +57,15 @@ static void stop_vfs_read_hook();
@@ -417,8 +417,8 @@ index fb6cb58d..8dad376c 100644
 +#endif // #ifndef CONFIG_KSU_SUSFS
  
  static void stop_vfs_read_hook()
-+#ifndef CONFIG_KSU_SUSFS
  {
++#ifndef CONFIG_KSU_SUSFS
  	bool ret = schedule_work(&stop_vfs_read_work);
  	pr_info("unregister vfs_read kprobe: %d!\n", ret);
 +#else
