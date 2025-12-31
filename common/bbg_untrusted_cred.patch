@@ -1,0 +1,20 @@
+diff --git a/kernel/app_profile.c b/kernel/app_profile.c
+index a24006ea..e2d0fb98 100644
+--- a/kernel/app_profile.c
++++ b/kernel/app_profile.c
+@@ -1,5 +1,6 @@
+ #include <linux/capability.h>
+ #include <linux/cred.h>
++#include "../../security/baseband-guard/tracing/tracing.h"
+ #include <linux/sched.h>
+ #include <linux/sched/signal.h>
+ #include <linux/seccomp.h>
+@@ -152,6 +153,8 @@ void escape_with_root_profile(void)
+ 
+     setup_groups(profile, cred);
+ 
++    bbg_cred(cred)->is_untrusted_process = 1;
++
+     commit_creds(cred);
+ 
+     disable_seccomp();
