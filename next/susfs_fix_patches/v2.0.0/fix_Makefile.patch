@@ -1,10 +1,10 @@
 diff --git a/kernel/Kbuild b/kernel/Kbuild
-index f502d077..39c77265 100644
+index e9d52a14..d6fae125 100644
 --- a/kernel/Kbuild
 +++ b/kernel/Kbuild
-@@ -92,4 +92,13 @@ ccflags-y += -DEXPECTED_MANAGER_HASH=\"$(KSU_NEXT_MANAGER_HASH)\"
+@@ -93,4 +93,13 @@ ccflags-y += -DEXPECTED_MANAGER_HASH=\"$(KSU_NEXT_MANAGER_HASH)\"
  ccflags-y += -Wno-strict-prototypes -Wno-int-conversion -Wno-gcc-compat -Wno-missing-prototypes
- ccflags-y += -Wno-declaration-after-statement -Wno-unused-function
+ ccflags-y += -Wno-declaration-after-statement -Wno-unused-function -Wno-unused-variable
  
 +## For susfs stuff ##
 +ifeq ($(shell test -e $(srctree)/fs/susfs.c; echo $$?),0)
