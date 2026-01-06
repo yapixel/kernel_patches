@@ -1,0 +1,12 @@
+--- a/drivers/kernelsu/throne_tracker.c
++++ b/drivers/kernelsu/throne_tracker.c
+@@ -17,6 +17,8 @@
+ #elif defined(CONFIG_KSU_SYSCALL_HOOK) ||                                        \
+ 	(LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0) &&                      \
+ 	 defined(CONFIG_KSU_MANUAL_HOOK) && !defined(CONFIG_KSU_SUSFS))
+ #define SYSTEM_PACKAGES_LIST_PATH "/data/system/packages.list"
++#else
++#define SYSTEM_PACKAGES_LIST_PATH "/data/system/packages.list"
+ #endif
+ 
+ struct uid_data {
