@@ -1,6 +1,6 @@
---- a/fs/namespace.c	2026-01-01 02:09:16.377265000 -0500
-+++ b/fs/namespace.c	2026-01-01 02:28:23.543873062 -0500
-@@ -31,10 +31,23 @@
+--- a/fs/namespace.c
++++ b/fs/namespace.c
+@@ -31,10 +31,24 @@
  #include <uapi/linux/mount.h>
  #include <linux/fs_context.h>
  #include <linux/shmem_fs.h>
@@ -15,10 +15,11 @@
 +extern bool susfs_is_current_ksu_domain(void);
 +extern bool susfs_is_sdcard_android_data_decrypted __read_mostly;
 +
-+static atomic64_t susfs_ksu_mounts = ATOMIC64_INIT(0);
-+
-+
 +#define CL_COPY_MNT_NS BIT(25) /* used by copy_mnt_ns() */
++
++static DEFINE_IDA(susfs_mnt_id_ida);
++static DEFINE_IDA(susfs_mnt_group_ida);
++
 +#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 +
  /* Maximum number of mounts in a mount namespace */
