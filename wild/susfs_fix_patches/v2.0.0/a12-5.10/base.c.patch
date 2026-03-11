@@ -1,9 +1,9 @@
 --- a/fs/proc/base.c
 +++ b/fs/proc/base.c
-@@ -923,6 +923,25 @@
- }
+@@ -864,6 +864,26 @@
+ 	while (count > 0) {
+ 		int this_len = min_t(int, count, PAGE_SIZE);
  
- static int mem_release(struct inode *inode, struct file *file)
 +#ifdef CONFIG_KSU_SUSFS_SUS_MAP
 +		vma = find_vma(mm, addr);
 +		if (vma && vma->vm_file) {
@@ -23,6 +23,7 @@
 +			}
 +		}
 +#endif
- {
- 	struct mm_struct *mm = file->private_data;
- 	if (mm)
++
+ 		if (write && copy_from_user(page, buf, this_len)) {
+ 			copied = -EFAULT;
+ 			break;

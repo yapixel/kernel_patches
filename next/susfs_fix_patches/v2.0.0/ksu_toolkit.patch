@@ -38,11 +38,10 @@ diff --git a/kernel/supercalls.c b/kernel/supercalls.c
 index 5d78b861..ab494f51 100644
 --- a/kernel/supercalls.c
 +++ b/kernel/supercalls.c
-@@ -1118,6 +1118,55 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user
-             pr_warn("install fd add task_work failed\n");
-         }
+@@ -1112,6 +1112,54 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user
+ 	return 0;
      }
-+
+ 
 +	unsigned long reply = (unsigned long)*arg;
 +
 +	if (magic2 == CHANGE_MANAGER_UID) {
@@ -91,6 +90,6 @@ index 5d78b861..ab494f51 100644
 +			return 0;
 +	}
 +
-     return 0;
+     return -EINVAL;
  }
  #endif // #ifndef CONFIG_KSU_SUSFS
