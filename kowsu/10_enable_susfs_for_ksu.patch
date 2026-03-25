@@ -722,32 +722,46 @@ index b65f322b..ca0aa367 100644
                                 int *__never_use_flags);
  
 diff --git a/kernel/supercalls.c b/kernel/supercalls.c
-index a69518f1..7a101d16 100644
+index a69518f1..75f8bf6f 100644
 --- a/kernel/supercalls.c
 +++ b/kernel/supercalls.c
-@@ -26,6 +26,9 @@
- #include "selinux/selinux.h"
- #include "file_wrapper.h"
- #include "tp_marker.h"
-+#ifndef CONFIG_KSU_SUSFS
-+#include "syscall_hook_manager.h"
-+#endif
+@@ -13,6 +13,10 @@
+ #include <linux/version.h>
+ #include <linux/pid.h>
+ #include <linux/utsname.h> // utsname() and uts_sem
++#ifdef CONFIG_KSU_SUSFS
++#include <linux/namei.h>
++#include <linux/susfs.h>
++#endif // #ifdef CONFIG_KSU_SUSFS
  
- #include "tiny_sulog.c"
- 
-@@ -131,6 +134,15 @@ static int do_report_event(void __user *arg)
+ #include "supercalls.h"
+ #include "arch.h"
+@@ -131,6 +135,9 @@ static int do_report_event(void __user *arg)
              } else {
                  pr_info("boot_complete triggered\n");
                  on_boot_completed();
-+                if (ksu_late_loaded) {
-+                pr_info("boot_complete skipped (late load)\n");
-+            } else {
-+                pr_info("boot_complete triggered\n");
-+                on_boot_completed();
 +#ifdef CONFIG_KSU_SUSFS
 +                susfs_start_sdcard_monitor_fn();
-+#endif
-+            }
++#endif // #ifdef CONFIG_KSU_SUSFS
              }
          }
          break;
+@@ -989,13 +996,18 @@ void ksu_supercalls_init(void)
+     }
+ 
+     sulog_init_heap(); // grab heap memory
++#endif // #ifndef CONFIG_KSU_SUSFS
+ }
+ 
+ void ksu_supercalls_exit(void)
+ {
+     struct mount_entry *entry, *tmp;
+ 
++#ifndef CONFIG_KSU_SUSFS
+     unregister_kprobe(&reboot_kp);
++#else
++    pr_info("susfs: do nothing\n");
++#endif // #ifndef CONFIG_KSU_SUSFS
+ 
+     down_write(&mount_list_lock);
+     list_for_each_entry_safe (entry, tmp, &mount_list, list) {
