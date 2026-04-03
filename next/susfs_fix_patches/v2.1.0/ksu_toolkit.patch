@@ -2,7 +2,7 @@ diff --git a/kernel/sucompat.c b/kernel/sucompat.c
 index 97493b1e..e2079313 100644
 --- a/kernel/sucompat.c
 +++ b/kernel/sucompat.c
-@@ -230,6 +230,7 @@ int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
+@@ -125,6 +125,7 @@ int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
      pr_info("ksu_handle_execveat_sucompat: su found\n");
      memcpy((void *)filename->name, ksud_path, sizeof(ksud_path));
  
@@ -10,7 +10,7 @@ index 97493b1e..e2079313 100644
      escape_with_root_profile();
  
      return 0;
-@@ -254,6 +255,7 @@ int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
+@@ -149,6 +150,7 @@ int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
  
      if (unlikely(!memcmp(path, su_path, sizeof(su_path)))) {
          pr_info("ksu_handle_faccessat: su->sh!\n");
@@ -18,15 +18,15 @@ index 97493b1e..e2079313 100644
          *filename_user = sh_user_path();
      }
  
-@@ -273,6 +275,7 @@ int ksu_handle_stat(int *dfd, struct filename **filename, int *flags) {
-     }
- 
+@@ -165,6 +167,7 @@ int ksu_handle_stat(int *dfd, struct filename **filename, int *flags) {
+ 		return 0;
+ 	}
      pr_info("ksu_handle_stat: su->sh!\n");
 +    write_sulog('s');
      memcpy((void *)((*filename)->name), sh_path, sizeof(sh_path));
      return 0;
  }
-@@ -289,6 +292,7 @@ int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
+@@ -181,6 +184,7 @@ int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
  
      if (unlikely(!memcmp(path, su_path, sizeof(su_path)))) {
          pr_info("ksu_handle_stat: su->sh!\n");
@@ -38,9 +38,9 @@ diff --git a/kernel/supercalls.c b/kernel/supercalls.c
 index 5d78b861..ab494f51 100644
 --- a/kernel/supercalls.c
 +++ b/kernel/supercalls.c
-@@ -1123,6 +1123,54 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user
-         return 0;
-     }
+@@ -952,6 +952,54 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user
+ 		return 0;
+ 	}
  
 +	unsigned long reply = (unsigned long)*arg;
 +
@@ -90,6 +90,6 @@ index 5d78b861..ab494f51 100644
 +			return 0;
 +	}
 +
-     return -EINVAL;
+ 	return -EINVAL;
  }
- #endif // #ifndef CONFIG_KSU_SUSFS
+ 
