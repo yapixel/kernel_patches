@@ -1,38 +1,46 @@
 --- a/fs/exec.c
 +++ b/fs/exec.c
-@@ -2086,6 +2086,15 @@ int kernel_execve(const char *kernel_filename,
+@@ -2086,15 +2086,23 @@ out_ret:
  	return retval;
  }
  
+-static int do_execve(struct filename *filename,
+-	const char __user *const __user *__argv,
+-	const char __user *const __user *__envp)
 +#ifdef CONFIG_KSU
 +__attribute__((hot))
 +extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr,
-+				void *argv, void *envp, int *flags);
++                void *argv, void *envp, int *flags);
 +#endif
 +
- static int do_execve(struct filename *filename,
- 	const char __user *const __user *__argv,
- 	const char __user *const __user *__envp)
-@@ -2093,6 +2102,9 @@ static int do_execve(struct filename *filename,
++int do_execve(struct filename *filename,
++    const char __user *const __user *__argv,
++    const char __user *const __user *__envp)
  {
- 	struct user_arg_ptr argv = { .ptr.native = __argv };
- 	struct user_arg_ptr envp = { .ptr.native = __envp };
+-	struct user_arg_ptr argv = { .ptr.native = __argv };
+-	struct user_arg_ptr envp = { .ptr.native = __envp };
+-	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
++    struct user_arg_ptr argv = { .ptr.native = __argv };
++    struct user_arg_ptr envp = { .ptr.native = __envp };
 +#ifdef CONFIG_KSU
-+	ksu_handle_execveat((int *)AT_FDCWD, &filename, &argv, &envp, 0);
++    ksu_handle_execveat((int *)AT_FDCWD, &filename, &argv, &envp, 0);
 +#endif
- 	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
++    return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
  }
- 
-@@ -2118,6 +2130,9 @@ static int compat_do_execve(struct filename *filename,
+-
+ static int do_execveat(int fd, struct filename *filename,
+ 		const char __user *const __user *__argv,
+ 		const char __user *const __user *__envp,
+@@ -2119,6 +2127,9 @@ static int compat_do_execve(struct filen
  		.is_compat = true,
  		.ptr.compat = __envp,
  	};
-+#ifdef CONFIG_KSU
-+	ksu_handle_execveat((int *)AT_FDCWD, &filename, &argv, &envp, 0);
++#ifdef CONFIG_KSU // 32-bit ksud and 32-on-64 support
++    ksu_handle_execveat((int *)AT_FDCWD, &filename, &argv, &envp, 0);
 +#endif
  	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
  }
- 
+
 --- a/fs/open.c
 +++ b/fs/open.c
 @@ -354,6 +354,12 @@ SYSCALL_DEFINE4(fallocate, int, fd, int, mode, loff_t, offset, loff_t, len)
