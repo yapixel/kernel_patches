@@ -1,4 +1,3 @@
-diff --git a/fs/exec.c b/fs/exec.c
 --- a/fs/exec.c
 +++ b/fs/exec.c
 @@ -2086,6 +2086,15 @@ int kernel_execve(const char *kernel_filename,
@@ -24,17 +23,16 @@ diff --git a/fs/exec.c b/fs/exec.c
  	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
  }
  
-@@ -2109,6 +2121,9 @@ static int compat_do_execve(struct filename *filename,
- 	struct user_arg_ptr envp = {
+@@ -2118,6 +2130,9 @@ static int compat_do_execve(struct filename *filename,
  		.is_compat = true,
  		.ptr.compat = __envp,
  	};
-+#ifdef CONFIG_KSU // 32-bit ksud and 32-on-64 support
++#ifdef CONFIG_KSU
 +	ksu_handle_execveat((int *)AT_FDCWD, &filename, &argv, &envp, 0);
 +#endif
  	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
  }
-diff --git a/fs/open.c b/fs/open.c
+ 
 --- a/fs/open.c
 +++ b/fs/open.c
 @@ -354,6 +354,12 @@ SYSCALL_DEFINE4(fallocate, int, fd, int, mode, loff_t, offset, loff_t, len)
@@ -42,7 +40,7 @@ diff --git a/fs/open.c b/fs/open.c
  }
  
 +#ifdef CONFIG_KSU
-+__attribute__((hot)) 
++__attribute__((hot))
 +extern int ksu_handle_faccessat(int *dfd, const char __user **filename_user,
 +				int *mode, int *flags);
 +#endif
@@ -61,7 +59,6 @@ diff --git a/fs/open.c b/fs/open.c
  	if (mode & ~S_IRWXO)	/* where's F_OK, X_OK, W_OK, R_OK? */
  		return -EINVAL;
  
-diff --git a/fs/stat.c b/fs/stat.c
 --- a/fs/stat.c
 +++ b/fs/stat.c
 @@ -353,6 +353,12 @@ SYSCALL_DEFINE2(newlstat, const char __user *, filename,
@@ -69,7 +66,7 @@ diff --git a/fs/stat.c b/fs/stat.c
  }
  
 +#ifdef CONFIG_KSU
-+__attribute__((hot)) 
++__attribute__((hot))
 +extern int ksu_handle_stat(int *dfd, const char __user **filename_user,
 +				int *flags);
 +#endif
@@ -95,7 +92,7 @@ diff --git a/fs/stat.c b/fs/stat.c
 +#ifdef CONFIG_KSU
 +extern void ksu_handle_newfstat_ret(unsigned int *fd, struct stat __user **statbuf_ptr);
 +#if defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_COMPAT_STAT64)
-+extern void ksu_handle_fstat64_ret(unsigned long *fd, struct stat64 __user **statbuf_ptr); // for 32-bit
++extern void ksu_handle_fstat64_ret(unsigned long *fd, struct stat64 __user **statbuf_ptr);
 +#endif
 +#endif
 +
@@ -116,7 +113,7 @@ diff --git a/fs/stat.c b/fs/stat.c
  	if (!error)
  		error = cp_new_stat64(&stat, statbuf);
  
-+#ifdef CONFIG_KSU // for 32-bit
++#ifdef CONFIG_KSU
 +	ksu_handle_fstat64_ret(&fd, &statbuf);
 +#endif
  	return error;
@@ -126,14 +123,13 @@ diff --git a/fs/stat.c b/fs/stat.c
  	struct kstat stat;
  	int error;
  
-+#ifdef CONFIG_KSU // 32-bit su
-+	ksu_handle_stat(&dfd, &filename, &flag); 
++#ifdef CONFIG_KSU
++	ksu_handle_stat(&dfd, &filename, &flag);
 +#endif
 +
  	error = vfs_fstatat(dfd, filename, &stat, flag);
  	if (error)
  		return error;
-diff --git a/kernel/reboot.c b/kernel/reboot.c
 --- a/kernel/reboot.c
 +++ b/kernel/reboot.c
 @@ -277,6 +277,11 @@ static DEFINE_MUTEX(reboot_mutex);
@@ -152,7 +148,7 @@ diff --git a/kernel/reboot.c b/kernel/reboot.c
  	char buffer[256];
  	int ret = 0;
  
-+#ifdef CONFIG_KSU 
++#ifdef CONFIG_KSU
 +	ksu_handle_sys_reboot(magic1, magic2, cmd, &arg);
 +#endif
  	/* We only trust the superuser with rebooting the system. */
