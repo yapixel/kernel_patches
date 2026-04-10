@@ -1,4 +1,4 @@
-From 5cc341b782f8854ae017ad1d1e1fd6022edd94f3 Mon Sep 17 00:00:00 2001
+From f988871ccef77ebcf83d40bb40084878d56b27b3 Mon Sep 17 00:00:00 2001
 From: debiansid <9624961+debiansid@users.noreply.github.com>
 Date: Fri, 10 Apr 2026 11:22:34 +0800
 Subject: [PATCH] Work in progress: Sultan Fixes
@@ -9,7 +9,7 @@ Subject: [PATCH] Work in progress: Sultan Fixes
  kernel/feature/kernel_umount.c | 20 +++++--
  kernel/feature/sucompat.c      |  1 -
  kernel/hook/core_hook.c        | 89 +++++++++++++++++++++++++++++-
- kernel/ksu.c                   | 28 +++++++++-
+ kernel/ksu.c                   | 30 ++++++++++-
  kernel/runtime/ksud.c          | 14 +++--
  kernel/runtime/ksud.h          | 21 ++++++--
  kernel/selinux/rules.c         |  8 +++
@@ -17,7 +17,7 @@ Subject: [PATCH] Work in progress: Sultan Fixes
  kernel/selinux/selinux.h       | 13 +++++
  kernel/supercall/dispatch.c    | 24 +++++++++
  kernel/supercall/supercall.c   | 98 ++++++++++++++++++++++++++++++++++
- 13 files changed, 506 insertions(+), 14 deletions(-)
+ 13 files changed, 508 insertions(+), 14 deletions(-)
 
 diff --git a/kernel/Kconfig b/kernel/Kconfig
 index fa8b5622..fc2f2fd2 100644
@@ -335,7 +335,7 @@ index 1f203cdf..8102407a 100644
  
  LSM_HANDLER_TYPE ksu_bprm_check(struct linux_binprm *bprm)
 diff --git a/kernel/ksu.c b/kernel/ksu.c
-index fda66972..1297bb15 100644
+index fda66972..a81230ab 100644
 --- a/kernel/ksu.c
 +++ b/kernel/ksu.c
 @@ -11,7 +11,7 @@
@@ -357,7 +357,7 @@ index fda66972..1297bb15 100644
  
  // selinux includes
  #include "avc_ss.h"
-@@ -97,10 +100,33 @@
+@@ -97,10 +100,35 @@
  // __weak fn's
  #include "kernel_compat.c"
  
@@ -365,21 +365,23 @@ index fda66972..1297bb15 100644
 +/* --- SUSFS Bridge Functions Start --- */
 +
 +#ifdef CONFIG_KSU_SUSFS
-+// This name matches what supercall.c calls (Double Pointer)
++// This name matches exactly what supercall.c calls (Double Pointer)
 +void susfs_add_try_umount(void __user **arg) {
-+    // We declare the kernel's real version (Single Pointer) INSIDE here
-+    // This localizes the scope and prevents the "conflicting types" error.
-+    extern void susfs_add_try_umount(void __user *arg);
++    // We use a different local name for the extern to avoid the 
++    // "conflicting types for susfs_add_try_umount" error.
++    // We use the 'asm' keyword to point this local name to the 
++    // REAL kernel symbol 'susfs_add_try_umount'.
++    extern void kernel_susfs_add_try_umount(void __user *arg) __asm__("susfs_add_try_umount");
 +    
 +    if (arg && *arg) {
-+        susfs_add_try_umount((void __user *)*arg);
++        kernel_susfs_add_try_umount((void __user *)*arg);
 +    }
 +}
 +
 +// This handles the call from ksu_task_fix_setuid in core_hook.c
 +void susfs_try_umount(uid_t uid) {
-+    extern void susfs_try_umount(uid_t uid);
-+    susfs_try_umount(uid);
++    extern void kernel_susfs_try_umount(uid_t uid) __asm__("susfs_try_umount");
++    kernel_susfs_try_umount(uid);
 +}
 +#endif
 +
@@ -795,3 +797,4 @@ index a6720a48..d61b7b7b 100644
  	// arg4 = (unsigned long)PT_REGS_SYSCALL_PARM4(real_regs);
 -- 
 2.39.5
+
