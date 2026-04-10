@@ -1,4 +1,4 @@
-From f988871ccef77ebcf83d40bb40084878d56b27b3 Mon Sep 17 00:00:00 2001
+From 4e70bf678cd10c1e78611c435b506c55c4acaede Mon Sep 17 00:00:00 2001
 From: debiansid <9624961+debiansid@users.noreply.github.com>
 Date: Fri, 10 Apr 2026 11:22:34 +0800
 Subject: [PATCH] Work in progress: Sultan Fixes
@@ -9,15 +9,15 @@ Subject: [PATCH] Work in progress: Sultan Fixes
  kernel/feature/kernel_umount.c | 20 +++++--
  kernel/feature/sucompat.c      |  1 -
  kernel/hook/core_hook.c        | 89 +++++++++++++++++++++++++++++-
- kernel/ksu.c                   | 30 ++++++++++-
- kernel/runtime/ksud.c          | 14 +++--
- kernel/runtime/ksud.h          | 21 ++++++--
+ kernel/ksu.c                   | 57 +++++++++++++++++++-
+ kernel/runtime/ksud.c          |  8 +--
+ kernel/runtime/ksud.h          | 22 ++++++--
  kernel/selinux/rules.c         |  8 +++
  kernel/selinux/selinux.c       | 96 +++++++++++++++++++++++++++++++++
  kernel/selinux/selinux.h       | 13 +++++
  kernel/supercall/dispatch.c    | 24 +++++++++
  kernel/supercall/supercall.c   | 98 ++++++++++++++++++++++++++++++++++
- 13 files changed, 508 insertions(+), 14 deletions(-)
+ 13 files changed, 530 insertions(+), 14 deletions(-)
 
 diff --git a/kernel/Kconfig b/kernel/Kconfig
 index fa8b5622..fc2f2fd2 100644
@@ -335,7 +335,7 @@ index 1f203cdf..8102407a 100644
  
  LSM_HANDLER_TYPE ksu_bprm_check(struct linux_binprm *bprm)
 diff --git a/kernel/ksu.c b/kernel/ksu.c
-index fda66972..a81230ab 100644
+index fda66972..cd5290d7 100644
 --- a/kernel/ksu.c
 +++ b/kernel/ksu.c
 @@ -11,7 +11,7 @@
@@ -357,7 +357,7 @@ index fda66972..a81230ab 100644
  
  // selinux includes
  #include "avc_ss.h"
-@@ -97,10 +100,35 @@
+@@ -97,10 +100,62 @@
  // __weak fn's
  #include "kernel_compat.c"
  
@@ -365,12 +365,13 @@ index fda66972..a81230ab 100644
 +/* --- SUSFS Bridge Functions Start --- */
 +
 +#ifdef CONFIG_KSU_SUSFS
-+// This name matches exactly what supercall.c calls (Double Pointer)
++/**
++ * Bridge for susfs_add_try_umount
++ * supercall.c calls this as a double pointer (void **).
++ * The kernel defines it as a single pointer (void *).
++ * Using __asm__ aliasing prevents "conflicting types" errors in Unity Builds.
++ */
 +void susfs_add_try_umount(void __user **arg) {
-+    // We use a different local name for the extern to avoid the 
-+    // "conflicting types for susfs_add_try_umount" error.
-+    // We use the 'asm' keyword to point this local name to the 
-+    // REAL kernel symbol 'susfs_add_try_umount'.
 +    extern void kernel_susfs_add_try_umount(void __user *arg) __asm__("susfs_add_try_umount");
 +    
 +    if (arg && *arg) {
@@ -378,12 +379,38 @@ index fda66972..a81230ab 100644
 +    }
 +}
 +
-+// This handles the call from ksu_task_fix_setuid in core_hook.c
++/**
++ * Bridge for susfs_try_umount
++ * core_hook.c calls this directly.
++ */
 +void susfs_try_umount(uid_t uid) {
 +    extern void kernel_susfs_try_umount(uid_t uid) __asm__("susfs_try_umount");
 +    kernel_susfs_try_umount(uid);
 +}
 +#endif
++
++// This handles the read hook triggered from fs/read_write.c
++void ksu_handle_sys_read(unsigned int fd) {
++	ksu_handle_sys_read_fd(fd);
++}
++
++// Standard SUSFS compatibility stubs
++int ksu_handle_setresuid(uid_t ruid, uid_t euid, uid_t suid) {
++	return 0;
++}
++
++void ksu_handle_vfs_fstat(int fd, loff_t *kstat_size_ptr) {
++	return;
++}
++
++int ksu_handle_devpts(struct inode *inode) {
++	return 0;
++}
++
++int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code, int *value) {
++	return 0;
++}
++/* --- SUSFS Bridge Functions End --- */
 +
  struct cred* ksu_cred;
  
@@ -394,24 +421,18 @@ index fda66972..a81230ab 100644
  // ref: kernel_compat.c, Makefile
  // yes looks nasty
 diff --git a/kernel/runtime/ksud.c b/kernel/runtime/ksud.c
-index fa578e50..07c05d4b 100644
+index fa578e50..41499798 100644
 --- a/kernel/runtime/ksud.c
 +++ b/kernel/runtime/ksud.c
-@@ -1,5 +1,13 @@
+@@ -1,5 +1,7 @@
  bool ksu_module_mounted __read_mostly = false;
  bool ksu_boot_completed __read_mostly = false;
 +bool ksu_su_compat_enabled __read_mostly = true;
-+
-+// Find your existing ksu_install_rc_hook and rename it or add this bridge:
-+noinline void ksu_init_rc_hook(struct file *file)
-+{
-+    // Redirect the kernel's call to your existing logic
-+    ksu_install_rc_hook(file);
-+}
++bool ksu_init_rc_hook __read_mostly = true;
  
  #ifdef CONFIG_KSU_EXTRAS
  extern void ksu_avc_spoof_late_init();
-@@ -177,7 +185,7 @@ first_app_process:
+@@ -177,7 +179,7 @@ first_app_process:
  	return 0;
  }
  
@@ -420,7 +441,7 @@ index fa578e50..07c05d4b 100644
  {
  	if (likely(!ksu_execveat_hook))
  		return 0;
-@@ -338,7 +346,7 @@ static bool is_init_rc(struct file *fp)
+@@ -338,7 +340,7 @@ static bool is_init_rc(struct file *fp)
  }
  
  __attribute__((cold))
@@ -429,7 +450,7 @@ index fa578e50..07c05d4b 100644
  {
  	if (likely(!ksu_vfs_read_hook))
  		return;
-@@ -386,7 +394,7 @@ static noinline void ksu_install_rc_hook(struct file *file)
+@@ -386,7 +388,7 @@ static noinline void ksu_install_rc_hook(struct file *file)
  
  // for sys_read kp / syscall table
  __attribute__((cold))
@@ -439,10 +460,10 @@ index fa578e50..07c05d4b 100644
  	if (likely(!ksu_vfs_read_hook))
  		return;
 diff --git a/kernel/runtime/ksud.h b/kernel/runtime/ksud.h
-index 28e00fea..fe4014a1 100644
+index 28e00fea..9cb1c555 100644
 --- a/kernel/runtime/ksud.h
 +++ b/kernel/runtime/ksud.h
-@@ -6,6 +6,16 @@
+@@ -6,6 +6,17 @@
  void ksu_ksud_init();
  void ksu_ksud_exit();
  
@@ -450,16 +471,17 @@ index 28e00fea..fe4014a1 100644
 +extern bool ksu_su_compat_enabled __read_mostly;
 +extern bool ksu_vfs_read_hook __read_mostly;
 +extern bool ksu_execveat_hook __read_mostly;
++extern bool ksu_init_rc_hook __read_mostly;
 +
 +// Prototype matching for the undefined symbols in your log
-+noinline void ksu_init_rc_hook(struct file *file);
++
 +noinline void ksu_handle_sys_read_fd(unsigned int fd);
 +noinline int ksu_handle_pre_ksud(const char *filename);
 +
  void on_post_fs_data(void);
  void on_module_mounted(void);
  void on_boot_completed(void);
-@@ -14,14 +24,15 @@ bool ksu_is_safe_mode(void);
+@@ -14,14 +25,15 @@ bool ksu_is_safe_mode(void);
  
  int nuke_ext4_sysfs(const char* mnt);
  
