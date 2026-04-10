@@ -320,8 +320,6 @@ index 1f203cdf..8102407a 100644
  }
  
  LSM_HANDLER_TYPE ksu_bprm_check(struct linux_binprm *bprm)
-diff --git a/kernel/ksu.c b/kernel/ksu.c
-index fda66972..12f2c70e 100644
 --- a/kernel/ksu.c
 +++ b/kernel/ksu.c
 @@ -94,6 +94,33 @@
@@ -360,7 +358,7 @@ index fda66972..12f2c70e 100644
  // __weak fn's
  #include "kernel_compat.c"
  
-@@ -178,6 +205,10 @@ int __init kernelsu_init(void)
+@@ -178,6 +205,10 @@
  
  	ksu_throne_tracker_init();
  
