@@ -1,21 +1,22 @@
-
-From 57a08c423a36b0d414c41463c94efda52a400dad Mon Sep 17 00:00:00 2001
-From: sidex15 <24408329+sidex15@users.noreply.github.com>
-Date: Sun, 5 Apr 2026 00:47:17 +0800
-Subject: [PATCH] kernel: implement susfs v2.1.0 (De-inlined)
+From a84efc8b796df1515c49e3352b1bee45e5863f72 Mon Sep 17 00:00:00 2001
+From: debiansid <9624961+debiansid@users.noreply.github.com>
+Date: Fri, 10 Apr 2026 11:22:34 +0800
+Subject: [PATCH] Work in progress: Sultan Fixes
 
 ---
  kernel/Kconfig                 | 98 ++++++++++++++++++++++++++++++++++
  kernel/Makefile                | 10 ++++
  kernel/feature/kernel_umount.c | 20 +++++--
  kernel/hook/core_hook.c        | 89 +++++++++++++++++++++++++++++-
- kernel/ksu.c                   |  8 +++
+ kernel/ksu.c                   | 28 +++++++++-
+ kernel/runtime/ksud.c          |  6 +--
+ kernel/runtime/ksud.h          | 11 ++--
  kernel/selinux/rules.c         |  8 +++
  kernel/selinux/selinux.c       | 96 +++++++++++++++++++++++++++++++++
  kernel/selinux/selinux.h       | 13 +++++
  kernel/supercall/dispatch.c    | 24 +++++++++
  kernel/supercall/supercall.c   | 98 ++++++++++++++++++++++++++++++++++
- 10 files changed, 460 insertions(+), 4 deletions(-)
+ 12 files changed, 488 insertions(+), 13 deletions(-)
 
 diff --git a/kernel/Kconfig b/kernel/Kconfig
 index fa8b5622..fc2f2fd2 100644
@@ -321,22 +322,33 @@ index 1f203cdf..8102407a 100644
  
  LSM_HANDLER_TYPE ksu_bprm_check(struct linux_binprm *bprm)
 diff --git a/kernel/ksu.c b/kernel/ksu.c
-index fda66972..12f2c70e 100644
+index fda66972..7176ca98 100644
 --- a/kernel/ksu.c
 +++ b/kernel/ksu.c
-@@ -94,6 +94,33 @@
- #include "extras.c"
- #endif
+@@ -11,7 +11,7 @@
+ #include "include/klog.h"
+ #include "include/arch.h"
+ #include "include/ksu.h"
+-
++   
+ // kernel compat, lite ones
+ #include "kernel_compat.h"
  
-+#include "runtime/ksud.h"
-+#include <linux/uidgid.h>
-+#include <linux/fs.h>
-+
+@@ -36,6 +36,9 @@
+ 
+ #include "selinux/selinux.h"
+ #include "selinux/sepolicy.h"
 +#ifdef CONFIG_KSU_SUSFS
 +#include <linux/susfs.h>
-+#endif // #ifdef CONFIG_KSU_SUSFS
-+
-+/* SUSFS Bridge Functions for Linker Satisfaction */
++#endif
+ 
+ // selinux includes
+ #include "avc_ss.h"
+@@ -97,10 +100,33 @@
+ // __weak fn's
+ #include "kernel_compat.c"
+ 
++/* --- SUSFS Bridge Functions Start --- */
 +void ksu_handle_sys_read(unsigned int fd) {
 +	ksu_handle_sys_read_fd(fd);
 +}
@@ -356,21 +368,73 @@ index fda66972..12f2c70e 100644
 +int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code, int *value) {
 +	return 0;
 +}
++/* --- SUSFS Bridge Functions End --- */
 +
- // __weak fn's
- #include "kernel_compat.c"
+ struct cred* ksu_cred;
  
-@@ -178,6 +205,10 @@ int __init kernelsu_init(void)
+ extern void ksu_supercalls_init();
  
- 	ksu_throne_tracker_init();
- 
-+#ifdef CONFIG_KSU_SUSFS
-+	susfs_init();
-+#endif // #ifdef CONFIG_KSU_SUSFS
 +
- 	ksu_ksud_init();
+ // track backports and other quirks here
+ // ref: kernel_compat.c, Makefile
+ // yes looks nasty
+diff --git a/kernel/runtime/ksud.c b/kernel/runtime/ksud.c
+index fa578e50..03e6b7e5 100644
+--- a/kernel/runtime/ksud.c
++++ b/kernel/runtime/ksud.c
+@@ -177,7 +177,7 @@ first_app_process:
+ 	return 0;
+ }
  
- 	ksu_file_wrapper_init();
+-static noinline int ksu_handle_pre_ksud(const char *filename)
++noinline int ksu_handle_pre_ksud(const char *filename)
+ {
+ 	if (likely(!ksu_execveat_hook))
+ 		return 0;
+@@ -338,7 +338,7 @@ static bool is_init_rc(struct file *fp)
+ }
+ 
+ __attribute__((cold))
+-static noinline void ksu_install_rc_hook(struct file *file)
++noinline void ksu_install_rc_hook(struct file *file)
+ {
+ 	if (likely(!ksu_vfs_read_hook))
+ 		return;
+@@ -386,7 +386,7 @@ static noinline void ksu_install_rc_hook(struct file *file)
+ 
+ // for sys_read kp / syscall table
+ __attribute__((cold))
+-static noinline void ksu_handle_sys_read_fd(unsigned int fd)
++noinline void ksu_handle_sys_read_fd(unsigned int fd)
+ {
+ 	if (likely(!ksu_vfs_read_hook))
+ 		return;
+diff --git a/kernel/runtime/ksud.h b/kernel/runtime/ksud.h
+index 28e00fea..83280d9a 100644
+--- a/kernel/runtime/ksud.h
++++ b/kernel/runtime/ksud.h
+@@ -14,14 +14,15 @@ bool ksu_is_safe_mode(void);
+ 
+ int nuke_ext4_sysfs(const char* mnt);
+ 
+-bool ksu_execveat_hook __read_mostly;
+-static noinline int ksu_handle_pre_ksud(const char *filename);
++extern bool ksu_execveat_hook __read_mostly;
++noinline int ksu_handle_pre_ksud(const char *filename);
+ 
+-bool ksu_vfs_read_hook __read_mostly;
+-static noinline void ksu_install_rc_hook(struct file *file);
++extern bool ksu_vfs_read_hook __read_mostly;
++noinline void ksu_install_rc_hook(struct file *file);
++noinline void ksu_handle_sys_read_fd(unsigned int fd);
+ 
+ extern u32 ksu_file_sid;
+ extern bool ksu_module_mounted;
+ extern bool ksu_boot_completed;
+ 
+-#endif
++#endif
+\ No newline at end of file
 diff --git a/kernel/selinux/rules.c b/kernel/selinux/rules.c
 index 1e3f7db2..a7540e47 100644
 --- a/kernel/selinux/rules.c
@@ -391,7 +455,7 @@ index 1e3f7db2..a7540e47 100644
  
  #define KSU_SEPOLICY_MAX_BATCH_SIZE (8U * 1024U * 1024U)
 diff --git a/kernel/selinux/selinux.c b/kernel/selinux/selinux.c
-index d7c6a71d..90a4688d 100644
+index d7c6a71d..353a0178 100644
 --- a/kernel/selinux/selinux.c
 +++ b/kernel/selinux/selinux.c
 @@ -227,3 +227,99 @@ void escape_to_root_for_adb_root(void)
@@ -412,7 +476,7 @@ index d7c6a71d..90a4688d 100644
 +static inline void susfs_set_sid(const char *secctx_name, u32 *out_sid)
 +{
 +    int err;
-+    
++
 +    if (!secctx_name || !out_sid) {
 +        pr_err("secctx_name || out_sid is NULL\n");
 +        return;
@@ -444,7 +508,7 @@ index d7c6a71d..90a4688d 100644
 +{
 +    u32 out_sid = 0;
 +    int err;
-+    
++
 +    if (!secctx_name) {
 +        pr_err("secctx_name is NULL\n");
 +        return 0;
@@ -519,7 +583,7 @@ index cbeac553..14e10007 100644
  
  void setenforce(bool);
 diff --git a/kernel/supercall/dispatch.c b/kernel/supercall/dispatch.c
-index 2d6973ee..4f7ffc6a 100644
+index 2d6973ee..d66526e5 100644
 --- a/kernel/supercall/dispatch.c
 +++ b/kernel/supercall/dispatch.c
 @@ -1,3 +1,13 @@
@@ -541,7 +605,7 @@ index 2d6973ee..4f7ffc6a 100644
  			pr_info("boot_complete triggered\n");
  			on_boot_completed();
 +#ifdef CONFIG_KSU_SUSFS
-+        	susfs_start_sdcard_monitor_fn();
++		susfs_start_sdcard_monitor_fn();
 +#endif // #ifdef CONFIG_KSU_SUSFS
  		}
  		break;
@@ -686,4 +750,5 @@ index a6720a48..d61b7b7b 100644
  
  	// arg4 = (unsigned long)PT_REGS_SYSCALL_PARM4(real_regs);
 -- 
-2.43.0
+2.39.5
+
