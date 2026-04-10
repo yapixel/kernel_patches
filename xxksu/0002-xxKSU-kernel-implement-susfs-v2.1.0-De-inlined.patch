@@ -1,4 +1,4 @@
-From a84efc8b796df1515c49e3352b1bee45e5863f72 Mon Sep 17 00:00:00 2001
+From 562b2a8c0aeb654cc76c2bdf0e5997c0f2c2c3a8 Mon Sep 17 00:00:00 2001
 From: debiansid <9624961+debiansid@users.noreply.github.com>
 Date: Fri, 10 Apr 2026 11:22:34 +0800
 Subject: [PATCH] Work in progress: Sultan Fixes
@@ -8,15 +8,15 @@ Subject: [PATCH] Work in progress: Sultan Fixes
  kernel/Makefile                | 10 ++++
  kernel/feature/kernel_umount.c | 20 +++++--
  kernel/hook/core_hook.c        | 89 +++++++++++++++++++++++++++++-
- kernel/ksu.c                   | 28 +++++++++-
- kernel/runtime/ksud.c          |  6 +--
- kernel/runtime/ksud.h          | 11 ++--
+ kernel/ksu.c                   | 53 +++++++++++++++++-
+ kernel/runtime/ksud.c          | 14 +++--
+ kernel/runtime/ksud.h          | 21 ++++++--
  kernel/selinux/rules.c         |  8 +++
  kernel/selinux/selinux.c       | 96 +++++++++++++++++++++++++++++++++
  kernel/selinux/selinux.h       | 13 +++++
  kernel/supercall/dispatch.c    | 24 +++++++++
  kernel/supercall/supercall.c   | 98 ++++++++++++++++++++++++++++++++++
- 12 files changed, 488 insertions(+), 13 deletions(-)
+ 12 files changed, 531 insertions(+), 13 deletions(-)
 
 diff --git a/kernel/Kconfig b/kernel/Kconfig
 index fa8b5622..fc2f2fd2 100644
@@ -322,7 +322,7 @@ index 1f203cdf..8102407a 100644
  
  LSM_HANDLER_TYPE ksu_bprm_check(struct linux_binprm *bprm)
 diff --git a/kernel/ksu.c b/kernel/ksu.c
-index fda66972..7176ca98 100644
+index fda66972..5bedccd7 100644
 --- a/kernel/ksu.c
 +++ b/kernel/ksu.c
 @@ -11,7 +11,7 @@
@@ -334,21 +334,46 @@ index fda66972..7176ca98 100644
  // kernel compat, lite ones
  #include "kernel_compat.h"
  
-@@ -36,6 +36,9 @@
- 
+@@ -37,6 +37,13 @@
  #include "selinux/selinux.h"
  #include "selinux/sepolicy.h"
+ 
 +#ifdef CONFIG_KSU_SUSFS
 +#include <linux/susfs.h>
++// If the linker still complains, manually declare the SUSFS functions here
++extern void susfs_try_umount(uid_t uid);
++extern void susfs_add_try_umount(void __user *arg);
 +#endif
- 
++
  // selinux includes
  #include "avc_ss.h"
-@@ -97,10 +100,33 @@
+ #include "objsec.h"
+@@ -97,10 +104,54 @@
  // __weak fn's
  #include "kernel_compat.c"
  
++
 +/* --- SUSFS Bridge Functions Start --- */
++
++#ifdef CONFIG_KSU_SUSFS
++// 1. This function name must match exactly what is called in supercall.c
++// 2. The argument 'arg' is a double pointer (void __user **) in supercall.c
++void susfs_add_try_umount(void __user **arg) {
++    // This tells the compiler the REAL function exists in the main kernel (fs/susfs.c)
++    extern void susfs_add_try_umount(void __user *arg);
++    
++    // We dereference the double pointer once to pass the single pointer to the kernel
++    susfs_add_try_umount((void __user *)*arg);
++}
++
++// This handles the call from ksu_task_fix_setuid in core_hook.c
++// The error log showed it was looking for a single uid_t argument
++void susfs_try_umount(uid_t uid) {
++    extern void susfs_try_umount(uid_t uid);
++    susfs_try_umount(uid);
++}
++#endif
++
 +void ksu_handle_sys_read(unsigned int fd) {
 +	ksu_handle_sys_read_fd(fd);
 +}
@@ -379,10 +404,24 @@ index fda66972..7176ca98 100644
  // ref: kernel_compat.c, Makefile
  // yes looks nasty
 diff --git a/kernel/runtime/ksud.c b/kernel/runtime/ksud.c
-index fa578e50..03e6b7e5 100644
+index fa578e50..07c05d4b 100644
 --- a/kernel/runtime/ksud.c
 +++ b/kernel/runtime/ksud.c
-@@ -177,7 +177,7 @@ first_app_process:
+@@ -1,5 +1,13 @@
+ bool ksu_module_mounted __read_mostly = false;
+ bool ksu_boot_completed __read_mostly = false;
++bool ksu_su_compat_enabled __read_mostly = true;
++
++// Find your existing ksu_install_rc_hook and rename it or add this bridge:
++noinline void ksu_init_rc_hook(struct file *file)
++{
++    // Redirect the kernel's call to your existing logic
++    ksu_install_rc_hook(file);
++}
+ 
+ #ifdef CONFIG_KSU_EXTRAS
+ extern void ksu_avc_spoof_late_init();
+@@ -177,7 +185,7 @@ first_app_process:
  	return 0;
  }
  
@@ -391,7 +430,7 @@ index fa578e50..03e6b7e5 100644
  {
  	if (likely(!ksu_execveat_hook))
  		return 0;
-@@ -338,7 +338,7 @@ static bool is_init_rc(struct file *fp)
+@@ -338,7 +346,7 @@ static bool is_init_rc(struct file *fp)
  }
  
  __attribute__((cold))
@@ -400,7 +439,7 @@ index fa578e50..03e6b7e5 100644
  {
  	if (likely(!ksu_vfs_read_hook))
  		return;
-@@ -386,7 +386,7 @@ static noinline void ksu_install_rc_hook(struct file *file)
+@@ -386,7 +394,7 @@ static noinline void ksu_install_rc_hook(struct file *file)
  
  // for sys_read kp / syscall table
  __attribute__((cold))
@@ -410,10 +449,27 @@ index fa578e50..03e6b7e5 100644
  	if (likely(!ksu_vfs_read_hook))
  		return;
 diff --git a/kernel/runtime/ksud.h b/kernel/runtime/ksud.h
-index 28e00fea..83280d9a 100644
+index 28e00fea..fe4014a1 100644
 --- a/kernel/runtime/ksud.h
 +++ b/kernel/runtime/ksud.h
-@@ -14,14 +14,15 @@ bool ksu_is_safe_mode(void);
+@@ -6,6 +6,16 @@
+ void ksu_ksud_init();
+ void ksu_ksud_exit();
+ 
++// Visibility fixes for Sultan LTO
++extern bool ksu_su_compat_enabled __read_mostly;
++extern bool ksu_vfs_read_hook __read_mostly;
++extern bool ksu_execveat_hook __read_mostly;
++
++// Prototype matching for the undefined symbols in your log
++noinline void ksu_init_rc_hook(struct file *file);
++noinline void ksu_handle_sys_read_fd(unsigned int fd);
++noinline int ksu_handle_pre_ksud(const char *filename);
++
+ void on_post_fs_data(void);
+ void on_module_mounted(void);
+ void on_boot_completed(void);
+@@ -14,14 +24,15 @@ bool ksu_is_safe_mode(void);
  
  int nuke_ext4_sysfs(const char* mnt);
  
