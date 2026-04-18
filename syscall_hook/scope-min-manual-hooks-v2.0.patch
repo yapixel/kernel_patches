@@ -1,6 +1,6 @@
 --- a/fs/exec.c
 +++ b/fs/exec.c
-@@ -1886,12 +1886,26 @@ static int do_execveat_common(int fd, struct filename *filename,
+@@ -2054,12 +2054,21 @@
  	return retval;
  }
  
@@ -10,7 +10,7 @@
 +				void *argv, void *envp, int *flags);
 +#endif
 +
- int do_execve(struct filename *filename,
+ static int do_execve(struct filename *filename,
  	const char __user *const __user *__argv,
  	const char __user *const __user *__envp)
  {
@@ -22,34 +22,45 @@
  	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
  }
  
-@@ -1919,6 +1933,10 @@
-static int compat_do_execve(struct filename *filename,
+@@ -2087,6 +2096,9 @@
  		.is_compat = true,
  		.ptr.compat = __envp,
  	};
-+#ifdef CONFIG_KSU // 32-bit ksud and 32-on-64 support
++#ifdef CONFIG_KSU
 +	ksu_handle_execveat((int *)AT_FDCWD, &filename, &argv, &envp, 0);
 +#endif
  	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
  }
+ 
 --- a/fs/open.c
 +++ b/fs/open.c
+@@ -354,6 +354,12 @@ SYSCALL_DEFINE4(fallocate, int, fd, int, mode, loff_t, offset, loff_t, len)
+ 	return error;
+ }
+ 
 +#ifdef CONFIG_KSU
-+__attribute__((hot)) 
++__attribute__((hot))
 +extern int ksu_handle_faccessat(int *dfd, const char __user **filename_user,
 +				int *mode, int *flags);
 +#endif
 +
- SYSCALL_DEFINE3(faccessat, int, dfd, const char __user *, filename, int, mode)
- {
+ /*
+  * access() needs to use the real uid/gid, not the effective uid/gid.
+  * We do this by temporarily clearing all FS-related capabilities and
+@@ -369,6 +375,10 @@ SYSCALL_DEFINE3(faccessat, int, dfd, const char __user *, filename, int, mode)
+ 	int res;
+ 	unsigned int lookup_flags = LOOKUP_FOLLOW;
+ 
 +#ifdef CONFIG_KSU
 +	ksu_handle_faccessat(&dfd, &filename, &mode, NULL);
 +#endif
- 	return do_faccessat(dfd, filename, mode);
- }
++
+ 	if (mode & ~S_IRWXO)	/* where's F_OK, X_OK, W_OK, R_OK? */
+ 		return -EINVAL;
+ 
 --- a/fs/stat.c
 +++ b/fs/stat.c
-@@ -353,6 +353,10 @@ SYSCALL_DEFINE2(newlstat, const char __user *, filename,
+@@ -495,6 +495,12 @@
  	return cp_new_stat(&stat, statbuf);
  }
  
@@ -59,27 +70,61 @@ static int compat_do_execve(struct filename *filename,
 +				int *flags);
 +#endif
 +
-
-#if !defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_SYS_NEWFSTATAT)
-SYSCALL_DEFINE4(newfstatat, int, dfd, const char __user *, filename,
-		struct stat __user *, statbuf, int, flag)
-{
-	struct kstat stat;
-	int error;
-
+ #if !defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_SYS_NEWFSTATAT)
+ SYSCALL_DEFINE4(newfstatat, int, dfd, const char __user *, filename,
+ 		struct stat __user *, statbuf, int, flag)
+@@ -502,6 +508,9 @@
+ 	struct kstat stat;
+ 	int error;
+ 
 +#ifdef CONFIG_KSU
 +	ksu_handle_stat(&dfd, &filename, &flag);
 +#endif
  	error = vfs_fstatat(dfd, filename, &stat, flag);
  	if (error)
  		return error;
-@@ -504,6 +511,9 @@ 
-SYSCALL_DEFINE4(fstatat64, int, dfd, const char __user *, filename,
-		struct stat64 __user *, statbuf, int, flag)
-{
-	struct kstat stat;
-	int error;
+@@ -509,6 +518,13 @@
+ }
+ #endif
  
++#if defined(CONFIG_KSU) && !defined(CONFIG_KSU_KPROBES_KSUD)
++extern void ksu_handle_newfstat_ret(unsigned int *fd, struct stat __user **statbuf_ptr);
++#if defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_COMPAT_STAT64)
++extern void ksu_handle_fstat64_ret(unsigned long *fd, struct stat64 __user **statbuf_ptr); // for 32-bit
++#endif
++#endif
++
+ SYSCALL_DEFINE2(newfstat, unsigned int, fd, struct stat __user *, statbuf)
+ {
+ 	struct kstat stat;
+@@ -516,7 +532,10 @@
+ 
+ 	if (!error)
+ 		error = cp_new_stat(&stat, statbuf);
+-
++		
++#if defined(CONFIG_KSU) && !defined(CONFIG_KSU_KPROBES_KSUD)
++	ksu_handle_newfstat_ret(&fd, &statbuf);
++#endif
+ 	return error;
+ }
+ #endif
+@@ -649,6 +668,9 @@
+ 	if (!error)
+ 		error = cp_new_stat64(&stat, statbuf);
+ 
++#if defined(CONFIG_KSU) && !defined(CONFIG_KSU_KPROBES_KSUD) // for 32-bit
++	ksu_handle_fstat64_ret(&fd, &statbuf);
++#endif
+ 	return error;
+ }
+ 
+@@ -657,7 +679,10 @@
+ {
+ 	struct kstat stat;
+ 	int error;
+-
++	
 +#ifdef CONFIG_KSU // 32-bit su
 +	ksu_handle_stat(&dfd, &filename, &flag); 
 +#endif
@@ -88,7 +133,7 @@ SYSCALL_DEFINE4(fstatat64, int, dfd, const char __user *, filename,
  		return error;
 --- a/kernel/reboot.c
 +++ b/kernel/reboot.c
-@@ -277,6 +277,11 @@ 
+@@ -715,6 +715,11 @@
   *
   * reboot doesn't sync: do that yourself before calling this.
   */
@@ -97,12 +142,12 @@ SYSCALL_DEFINE4(fstatat64, int, dfd, const char __user *, filename,
 +extern int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user **arg);
 +#endif
 +
-SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
-		void __user *, arg)
-{
-	struct pid_namespace *pid_ns = task_active_pid_ns(current);
-	char buffer[256];
-	int ret = 0;
+ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
+ 		void __user *, arg)
+ {
+@@ -722,6 +727,9 @@
+ 	char buffer[256];
+ 	int ret = 0;
  
 +#if defined(CONFIG_KSU) && !defined(CONFIG_KSU_KPROBES_KSUD)
 +	ksu_handle_sys_reboot(magic1, magic2, cmd, &arg);
@@ -110,4 +155,3 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
  	/* We only trust the superuser with rebooting the system. */
  	if (!ns_capable(pid_ns->user_ns, CAP_SYS_BOOT))
  		return -EPERM;
- 		
