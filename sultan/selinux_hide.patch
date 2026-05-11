@@ -1,6 +1,5 @@
 --- a/security/selinux/avc.c
 +++ b/security/selinux/avc.c
-
 +#if defined(CONFIG_KSU) && !defined(CONFIG_KPROBES)
 +extern void ksu_slow_avc_audit(u32 *tsid);
 +#endif
@@ -21,11 +20,8 @@ noinline int slow_avc_audit(struct selinux_state *state,
 	if (!a) {
 		a = &stack_data;
 		a->type = LSM_AUDIT_DATA_NONE;
-
 --- a/security/selinux/selinuxfs.c
 +++ b/security/selinux/selinuxfs.c
-
-
 +#if defined(CONFIG_KSU) && !defined(CONFIG_KPROBES)
 +extern void ksu_sel_write_context(struct file **file, char **buf, size_t *size);
 +#endif
