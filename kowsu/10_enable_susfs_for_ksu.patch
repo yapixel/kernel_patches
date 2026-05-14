@@ -1,8 +1,39 @@
-From: Midori <lv@lvlv.lv>
-Date: Thu, 14 May 2026 12:55:00 +0900
-Subject: [PATCH] Fix manager sulog
+From: midori01 <midori01@users.noreply.github.com>
+Date: Fri, 15 May 2026 06:36:22 +0900
+Subject: [PATCH] fix fake_state link error
 
 ---
+ kernel/Kconfig                     |  92 ++++++++-
+ kernel/Makefile                    |  10 +
+ kernel/core/init.c                 |  78 +++-----
+ kernel/feature/adb_root.c          |  54 +++---
+ kernel/feature/adb_root.h          |   2 +-
+ kernel/feature/kernel_umount.c     |  24 ---
+ kernel/feature/selinux_hide.c      | 293 ++---------------------------
+ kernel/feature/sucompat.c          | 268 ++++++++++++++++++--------
+ kernel/feature/sucompat.h          |   9 +-
+ kernel/hook/setuid_hook.c          |  50 ++++-
+ kernel/hook/setuid_hook.h          |   3 -
+ kernel/hook/syscall_event_bridge.c |  87 +--------
+ kernel/hook/syscall_hook_manager.c |  97 ----------
+ kernel/include/ksu.h               |   1 -
+ kernel/policy/allowlist.c          |   8 -
+ kernel/policy/app_profile.c        |  14 +-
+ kernel/policy/app_profile.h        |   2 +-
+ kernel/policy/feature.h            |   2 +-
+ kernel/runtime/boot_event.c        |   4 +-
+ kernel/runtime/ksud.h              |  17 +-
+ kernel/runtime/ksud_integration.c  | 225 +++++++---------------
+ kernel/selinux/rules.c             |   6 +
+ kernel/selinux/selinux.c           |  94 +++++++++
+ kernel/selinux/selinux.h           |  11 ++
+ kernel/sulog/event.c               |  83 ++++----
+ kernel/sulog/event.h               |  12 +-
+ kernel/supercall/dispatch.c        | 174 +++++++++++------
+ kernel/supercall/supercall.c       |  38 ++--
+ kernel/supercall/supercall.h       |   2 +
+ 29 files changed, 788 insertions(+), 972 deletions(-)
+
 diff --git a/kernel/Kconfig b/kernel/Kconfig
 index c7701661..5c169f59 100644
 --- a/kernel/Kconfig
@@ -430,7 +461,7 @@ index 9caaf9b5..4da2ea9c 100644
      pr_info("handle umount for uid: %d, pid: %d\n", new_uid, current->pid);
  
 diff --git a/kernel/feature/selinux_hide.c b/kernel/feature/selinux_hide.c
-index fa78d97d..547a1bbb 100644
+index fa78d97d..2e7857c0 100644
 --- a/kernel/feature/selinux_hide.c
 +++ b/kernel/feature/selinux_hide.c
 @@ -1,17 +1,15 @@
@@ -504,10 +535,13 @@ index fa78d97d..547a1bbb 100644
                                                   struct av_decision *avd);
  static void (*security_dump_masked_av_fn)(struct policydb *policydb, struct context *scontext, struct context *tcontext,
                                            u16 tclass, u32 permissions, const char *reason) = NULL;
-@@ -71,263 +38,37 @@ static void (*context_struct_compute_av_fn)(struct policydb *policydb, struct co
- static struct selinux_state fake_state;
- #endif
- 
+@@ -68,266 +35,40 @@ static void (*context_struct_compute_av_fn)(struct policydb *policydb, struct co
+                                             struct context *tcontext, u16 tclass, struct av_decision *avd,
+                                             struct extended_perms *xperms) = NULL;
+ #else
+-static struct selinux_state fake_state;
+-#endif
+-
 -static write_op_fn *context_write, *access_write;
 -static write_op_fn orig_context_write, orig_access_write;
 -
@@ -617,8 +651,9 @@ index fa78d97d..547a1bbb 100644
 -        goto out;
 -
 -    security_compute_av_user(&fake_state, ssid, tsid, tclass, &avd);
--#endif
--
++struct selinux_state fake_state;
+ #endif
+ 
 -    length = scnprintf(buf, SIMPLE_TRANSACTION_LIMIT, "%x %x %x %x %u %x", avd.allowed, 0xffffffff, avd.auditallow,
 -                       avd.auditdeny, avd.seqno, avd.flags);
 -out:
@@ -2759,3 +2794,6 @@ index b74f4300..a7753969 100644
  
  #endif // __KSU_H_SUPERCALL
 +
+-- 
+2.54.0
+
