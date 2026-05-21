@@ -1,8 +1,8 @@
 diff --git a/kernel/Kbuild b/kernel/Kbuild
-index 0bf1f25e..9abe7678 100644
+index 606e4e85..845e53a0 100644
 --- a/kernel/Kbuild
 +++ b/kernel/Kbuild
-@@ -3,18 +3,7 @@ kernelsu-objs := core/init.o
+@@ -3,25 +3,13 @@ kernelsu-objs := core/init.o
  kernelsu-objs += feature/kernel_umount.o
  kernelsu-objs += feature/sucompat.o
  
@@ -21,3 +21,10 @@ index 0bf1f25e..9abe7678 100644
  kernelsu-objs += extras.o
  kernelsu-objs += tiny_sulog.o
  
+ kernelsu-objs += infra/file_wrapper.o
+ kernelsu-objs += infra/seccomp_cache.o
+ kernelsu-objs += infra/su_mount_ns.o
+-kernelsu-objs += infra/symbol_resolver.o
+ 
+ ifneq ($(CONFIG_KSU_DISABLE_MANAGER),y)
+ kernelsu-objs += manager/apk_sign.o

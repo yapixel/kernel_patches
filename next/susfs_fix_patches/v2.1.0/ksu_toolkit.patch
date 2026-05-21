@@ -1,24 +1,17 @@
 diff --git a/kernel/feature/sucompat.c b/kernel/feature/sucompat.c
-index d12caae2..630351e7 100644
+index bc025c18..c47fc175 100644
 --- a/kernel/feature/sucompat.c
 +++ b/kernel/feature/sucompat.c
-@@ -134,6 +134,7 @@ int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
+@@ -160,6 +160,8 @@ int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
  
      memcpy((void *)filename->name, ksud_path, sizeof(ksud_path));
  
 +	write_sulog('x');
++
      ret = escape_with_root_profile();
      if (ret)
          pr_err("escape_with_root_profile() failed: %d\n", ret);
-@@ -160,6 +161,7 @@ int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
- 
-     if (unlikely(!memcmp(path, su_path, sizeof(su_path)))) {
-         pr_info("ksu_handle_faccessat: su->sh!\n");
-+		write_sulog('a');
- 		*filename_user = sh_user_path();
- 	}
- 
-@@ -175,6 +177,7 @@ int ksu_handle_stat(int *dfd, struct filename **filename, int *flags) {
+@@ -198,6 +200,7 @@ int ksu_handle_stat(int *dfd, struct filename **filename, int *flags) {
          return 0;
  
      pr_info("ksu_handle_stat: su->sh!\n");
@@ -26,29 +19,29 @@ index d12caae2..630351e7 100644
      memcpy((void *)((*filename)->name), sh_path, sizeof(sh_path));
      return 0;
  }
-@@ -189,6 +192,7 @@ int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
+@@ -213,6 +216,7 @@ int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
  
- 	if (unlikely(!memcmp(path, su_path, sizeof(su_path)))) {
- 		pr_info("ksu_handle_stat: su->sh!\n");
+     if (unlikely(!memcmp(path, su_path, sizeof(su_path)))) {
+         pr_info("ksu_handle_stat: su->sh!\n");
 +		write_sulog('s');
  		*filename_user = sh_user_path();
  	}
  
 diff --git a/kernel/supercall/dispatch.c b/kernel/supercall/dispatch.c
-index b5c9bf22..67d6164f 100644
+index 9b4ae1a2..fcd27fe7 100644
 --- a/kernel/supercall/dispatch.c
 +++ b/kernel/supercall/dispatch.c
-@@ -439,6 +439,8 @@ static int do_manage_mark(void __user *arg)
+@@ -445,6 +445,8 @@ static int do_manage_mark(void __user *arg)
  
  int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user **arg)
  {
 +    unsigned long reply = (unsigned long)*arg;
-+    
++
      if (magic1 != KSU_INSTALL_MAGIC1) {
          return -EINVAL; 
      }
-@@ -524,6 +526,52 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user
-         return -EINVAL;
+@@ -518,6 +520,52 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user
+         }
      }
  
 +	if (magic2 == CHANGE_MANAGER_UID) {
