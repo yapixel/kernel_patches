@@ -1,0 +1,12 @@
+diff --git a/fs/open.c b/fs/open.c
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -418,7 +418,7 @@ static const struct cred *access_override_creds(void)
+ 	return old_cred;
+ }
+ 
+-static long do_faccessat(int dfd, const char __user *filename, int mode, int flags)
++static noinline long do_faccessat(int dfd, const char __user *filename, int mode, int flags)
+ {
+ 	struct path path;
+ 	struct inode *inode;
